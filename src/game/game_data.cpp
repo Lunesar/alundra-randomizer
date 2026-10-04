@@ -1,5 +1,6 @@
 #include "game_data.hpp"
 
+#include <algorithm>
 #include <cstdint>
 
 #include "item.hpp"
@@ -127,18 +128,10 @@ void GameData::apply_options(const RandomizerOptions& options)
 
 void GameData::handle_crests(const RandomizerOptions& options)
 {
-    std::vector<uint8_t> crests = {
+    const std::vector<uint8_t> all_crests = {
             ITEM_RUBY_CREST, ITEM_SAPPHIRE_CREST, ITEM_TOPAZ_CREST, ITEM_AGATE_CREST,
             ITEM_EMERALD_CREST, ITEM_GARNET_CREST, ITEM_DIAMOND_CREST
     };
-    std::mt19937 rng(options.seed());
-    vectools::shuffle(crests, rng);
-
-    // Add random crests to the "used crests" list
-    for(size_t i=0 ; i<options.crest_count() ; ++i)
-        _used_crests.emplace_back(crests[i]);
-
-    // For each excluded crest, add the flag to automatically place it on its pedestal on game start
     const std::map<uint8_t, Flag> crest_flags = {
             { ITEM_RUBY_CREST,      FLAG_PLACED_RUBY_CREST },
             { ITEM_SAPPHIRE_CREST,  FLAG_PLACED_SAPPHIRE_CREST },
@@ -149,9 +142,30 @@ void GameData::handle_crests(const RandomizerOptions& options)
             { ITEM_DIAMOND_CREST,   FLAG_PLACED_DIAMOND_CREST }
     };
 
-    for(size_t i=options.crest_count() ; i<crests.size() ; ++i)
+    // A placement file that names the pedestal crests is authoritative. The seed
+    // shuffle remains for a permalink, and for an older file that has no list.
+    if(options.has_preplaced_crests())
     {
-        uint8_t crest_id = crests[i];
-        _starting_flags.emplace_back(crest_flags.at(crest_id));
+        const std::vector<uint8_t>& preplaced = options.preplaced_crests();
+        for(uint8_t crest_id : all_crests)
+        {
+            if(std::find(preplaced.begin(), preplaced.end(), crest_id) != preplaced.end())
+                _starting_flags.emplace_back(crest_flags.at(crest_id));
+            else
+                _used_crests.emplace_back(crest_id);
+        }
+        return;
     }
+
+    std::vector<uint8_t> crests = all_crests;
+    std::mt19937 rng(options.seed());
+    vectools::shuffle(crests, rng);
+
+    // Add random crests to the "used crests" list
+    for(size_t i=0 ; i<options.crest_count() ; ++i)
+        _used_crests.emplace_back(crests[i]);
+
+    // For each excluded crest, add the flag to automatically place it on its pedestal on game start
+    for(size_t i=options.crest_count() ; i<crests.size() ; ++i)
+        _starting_flags.emplace_back(crest_flags.at(crests[i]));
 }

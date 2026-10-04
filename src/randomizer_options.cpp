@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <utility>
 
 #include "game/game_data.hpp"
@@ -18,6 +19,49 @@
 #include "tools/bitstream_reader.hpp"
 #include "tools/exception.hpp"
 #include "tools/base64.hpp"
+
+namespace
+{
+bool is_crest_id(uint8_t id)
+{
+    switch(id)
+    {
+        case ITEM_RUBY_CREST:
+        case ITEM_SAPPHIRE_CREST:
+        case ITEM_TOPAZ_CREST:
+        case ITEM_AGATE_CREST:
+        case ITEM_EMERALD_CREST:
+        case ITEM_GARNET_CREST:
+        case ITEM_DIAMOND_CREST:
+            return true;
+        default:
+            return false;
+    }
+}
+
+std::vector<uint8_t> read_preplaced_crests(const Json& value, const GameData& game_data)
+{
+    if(!value.is_array())
+        throw RandomizerException("prePlacedCrests must be a list of crest names");
+
+    std::vector<uint8_t> ids;
+    std::set<uint8_t> seen;
+    for(const Json& entry : value)
+    {
+        if(!entry.is_string())
+            throw RandomizerException("prePlacedCrests entries must be crest names");
+
+        const std::string name = entry.get<std::string>();
+        const uint8_t id = game_data.item(name)->id();
+        if(!is_crest_id(id))
+            throw RandomizerException("'" + name + "' is not a crest and cannot be pre-placed");
+        if(!seen.insert(id).second)
+            throw RandomizerException("prePlacedCrests lists '" + name + "' more than once");
+        ids.emplace_back(id);
+    }
+    return ids;
+}
+}
 
 RandomizerOptions::RandomizerOptions(const ArgumentDictionary& args, const GameData& game_data, const RandomizerWorld& world)
 {
@@ -102,6 +146,13 @@ Json RandomizerOptions::to_json(const GameData& game_data, const RandomizerWorld
     json["randomizerSettings"]["startingInventory"] = starting_inventory_names;
 
     json["randomizerSettings"]["crestCount"] = _crest_count;
+    if(_preplaced_crests.has_value())
+    {
+        std::vector<std::string> preplaced_names;
+        for(uint8_t crest_id : *_preplaced_crests)
+            preplaced_names.emplace_back(game_data.item(crest_id)->name());
+        json["randomizerSettings"]["prePlacedCrests"] = preplaced_names;
+    }
 
     std::map<std::string, uint8_t> items_distribution_with_names;
     for(size_t i=0 ; i < _items_distribution.size() ; ++i)
@@ -167,6 +218,8 @@ void RandomizerOptions::apply_randomizer_settings_json(const Json& json, const G
             _allow_spoiler_log = value;
         else if(key == "crestCount")
             _crest_count = value;
+        else if(key == "prePlacedCrests")
+            _preplaced_crests = read_preplaced_crests(value, game_data);
         else if(key == "itemsDistribution")
         {
             std::map<std::string, uint8_t> items_distribution = value;
@@ -239,6 +292,8 @@ void RandomizerOptions::validate() const
 {
     if(_crest_count > 7)
         throw RandomizerException("Crest count cannot be above 7");
+    if(_preplaced_crests.has_value() && _preplaced_crests->size() + _crest_count != 7)
+        throw RandomizerException("prePlacedCrests and crestCount must add up to 7");
     if(_starting_health == 0 || _starting_health > 50)
         throw RandomizerException("Starting health must be between 1 and 50");
     if(_starting_mana > 4)

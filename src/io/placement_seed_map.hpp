@@ -23,7 +23,7 @@ class RandomizerWorld;
  *   "hashSentence": "...",           // informational, ignored on read
  *   "seed": 1,                       // used only when "permalink" is absent
  *   "gameSettings": { ... },         // preset format; used only when "permalink" is absent
- *   "randomizerSettings": { ... },
+ *   "randomizerSettings": { ... },   // prePlacedCrests, when present, replaces the crest shuffle
  *   "placements": { "1": 57 }        // location id -> in-game item id
  * }
  *

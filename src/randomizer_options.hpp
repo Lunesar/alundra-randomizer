@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -70,6 +71,10 @@ private:
     /// The number of crests that have to be found to access Lake Shrine
     uint8_t _crest_count = 7;
 
+    /// Crest item ids already on their pedestals. Unset means the seed shuffle still decides.
+    /// An empty vector is a real value: crest count 7, nothing pre-placed.
+    std::optional<std::vector<uint8_t>> _preplaced_crests;
+
     /// An array containing the items distribution (the complete set of items that will be placed inside
     /// ItemSources during randomization). The total count must always be lower or equal to the number
     /// of ItemSources inside the world.
@@ -105,6 +110,8 @@ public:
     [[nodiscard]] bool split_boots_effects() const { return _split_boots_effects; }
     [[nodiscard]] bool progressive_items() const { return _progressive_items; }
     [[nodiscard]] uint8_t crest_count() const { return _crest_count; }
+    [[nodiscard]] bool has_preplaced_crests() const { return _preplaced_crests.has_value(); }
+    [[nodiscard]] const std::vector<uint8_t>& preplaced_crests() const { return *_preplaced_crests; }
     [[nodiscard]] uint8_t king_snow_death_count() const { return _king_snow_death_count; }
     [[nodiscard]] uint8_t starting_health() const { return _starting_health; }
     [[nodiscard]] uint8_t starting_mana() const { return _starting_mana; }

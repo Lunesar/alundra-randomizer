@@ -774,6 +774,11 @@ void generate(const ArgumentDictionary& args)
     }
     else
     {
+        // A settings-based placement file has no permalink of its own. The string
+        // permalink() would build from those settings does not replay the placements.
+        if(mode == RandomizerRunMode::ApplyPlacement && placement.permalink.empty())
+            spoiler_json.erase("permalink");
+
         if(patch_rom)
             build_patched_rom(input_rom_path, output_rom_path, game_data, world, options,
                               resolve_tool_log_path(args));
@@ -784,14 +789,17 @@ void generate(const ArgumentDictionary& args)
     if(args.contains("graph"))
         GraphvizWriter::write_logic_as_dot(world, "./logic.dot");
 
+    const bool print_permalink = mode != RandomizerRunMode::ApplyPlacement || !placement.permalink.empty();
+
     std::cout << "\nHash sentence: " << options.hash_sentence() << "\n";
-    std::cout << "\nPermalink: " << options.permalink() << "\n";
+    if(print_permalink)
+        std::cout << "\nPermalink: " << options.permalink() << "\n";
     if(mode == RandomizerRunMode::GeneratePlacement)
     {
         std::cout << "\nApply this placement seed map with --placement-in to patch the game and write the hint log.\n"
                   << std::endl;
     }
-    else
+    else if(print_permalink)
     {
         std::cout << "\nShare the permalink above with other people to enable them building the exact same seed.\n"
                   << std::endl;
