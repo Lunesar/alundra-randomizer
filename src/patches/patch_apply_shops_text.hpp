@@ -4,6 +4,7 @@
 #include "../tools/byte_array.hpp"
 #include "../game/room_strings.hpp"
 #include "../constants/map_codes.hpp"
+#include "../model/item_source.hpp"
 #include "../tools/stringtools.hpp"
 #include "../tools/textbox_formatter.hpp"
 
@@ -20,6 +21,13 @@ public:
     }
 
 private:
+    // The item-id patch runs first and writes an Alundra item's gold into the
+    // shop words. A remote item leaves the shop's own price in place.
+    static std::string item_price(const BinaryFile& data, const ItemSource* source)
+    {
+        return std::to_string(data.get_word_le(source->price_addresses().front()));
+    }
+
     static void apply_lurvy_shop_text(BinaryFile& data, const RandomizerWorld& world)
     {
         ItemSource* lurvy_1 = world.item_source("Lurvy's Shop: Item #1 (Herbs)");
@@ -33,35 +41,35 @@ private:
         RoomStrings strings(MAP_398, data);
 
         strings.string(7) = TextboxFormatter(
-                R"(\CThat there )" + lurvy_1->item()->name() + R"('ll run you )" + std::to_string(lurvy_1->item()->gold_value()) + R"( Gilder. Okay? \0100\Y)"
+                R"(\CThat there )" + lurvy_1->contents_name() + R"('ll run you )" + item_price(data, lurvy_1) + R"( Gilder. Okay? \0100\Y)"
         ).format();
 
         strings.string(8) = TextboxFormatter(
-                R"(\C)" + lurvy_2->item()->name() + R"('ll run ya )" + std::to_string(lurvy_2->item()->gold_value()) + R"( Gilder these days. Soun' like a deal?\0100\Y)"
+                R"(\C)" + lurvy_2->contents_name() + R"('ll run ya )" + item_price(data, lurvy_2) + R"( Gilder these days. Soun' like a deal?\0100\Y)"
         ).format();
 
         strings.string(34) = TextboxFormatter(
-                R"(\C)" + lurvy_3->item()->name() + R"( costs )" + std::to_string(lurvy_3->item()->gold_value()) + R"( Gilder 'round here.\0100\Y)"
+                R"(\C)" + lurvy_3->contents_name() + R"( costs )" + item_price(data, lurvy_3) + R"( Gilder 'round here.\0100\Y)"
         ).format();
 
         strings.string(9) = TextboxFormatter(
-                R"(\C)" + lurvy_4->item()->name() + R"( costs )" + std::to_string(lurvy_4->item()->gold_value()) + R"( Gilder. Ya still in the market for one?\0100\Y)"
+                R"(\C)" + lurvy_4->contents_name() + R"( costs )" + item_price(data, lurvy_4) + R"( Gilder. Ya still in the market for one?\0100\Y)"
         ).format();
 
         strings.string(17) = TextboxFormatter(
-                R"(\CThat there's a )" + lurvy_5_1->item()->name() + R"(. It's a steal of a deal, at only )" + std::to_string(lurvy_5_1->item()->gold_value()) + R"( Gilder. Deal?\0100\Y)"
+                R"(\CThat there's a )" + lurvy_5_1->contents_name() + R"(. It's a steal of a deal, at only )" + item_price(data, lurvy_5_1) + R"( Gilder. Deal?\0100\Y)"
         ).format();
 
         strings.string(18) = TextboxFormatter(
-                R"(\CI don't need that )" + lurvy_5_2->item()->name() + R"(. )" + std::to_string(lurvy_5_2->item()->gold_value()) + R"( Gilder'n the thing's yurs. Want it?\0100\Y)"
+                R"(\CI don't need that )" + lurvy_5_2->contents_name() + R"(. )" + item_price(data, lurvy_5_2) + R"( Gilder'n the thing's yurs. Want it?\0100\Y)"
         ).format();
 
         strings.string(19) = TextboxFormatter(
-                R"(\C)" + lurvy_5_3->item()->name() + R"(, hm? How 'bout )" + std::to_string(lurvy_5_3->item()->gold_value()) + R"( Gilder?\0100\Y)"
+                R"(\C)" + lurvy_5_3->contents_name() + R"(, hm? How 'bout )" + item_price(data, lurvy_5_3) + R"( Gilder?\0100\Y)"
         ).format();
 
-        strings.string(35) = R"(\BReceived )" + lurvy_5_1->item()->name() + ".";
-        strings.string(36) = R"(\BReceived )" + lurvy_5_2->item()->name() + ".";
+        strings.string(35) = R"(\BReceived )" + lurvy_5_1->contents_name() + ".";
+        strings.string(36) = R"(\BReceived )" + lurvy_5_2->contents_name() + ".";
 
         strings.apply_on_data(data);
     }
@@ -76,27 +84,27 @@ private:
         RoomStrings strings(MAP_258, data);
 
         strings.string(1) = TextboxFormatter(
-                R"(\DIf you'd like to purchase )" + naomi_1->item()->name() + R"(, the cost will be )" +
-                std::to_string(naomi_1->item()->gold_value()) + R"( Gilder. Is that satisfactory? \0100\Y)"
+                R"(\DIf you'd like to purchase )" + naomi_1->contents_name() + R"(, the cost will be )" +
+                item_price(data, naomi_1) + R"( Gilder. Is that satisfactory? \0100\Y)"
         ).format();
 
         strings.string(2) = TextboxFormatter(
-                R"(\DAh, yes! )" + naomi_2->item()->name() + R"(! The prime choice of adventurers such as yourself! It costs, )" +
-                std::to_string(naomi_2->item()->gold_value()) + R"( Gilder, ok? \0100\Y)"
+                R"(\DAh, yes! )" + naomi_2->contents_name() + R"(! The prime choice of adventurers such as yourself! It costs, )" +
+                item_price(data, naomi_2) + R"( Gilder, ok? \0100\Y)"
         ).format();
 
         strings.string(3) = TextboxFormatter(
-                R"(\D)" + naomi_3->item()->name() + "! For just " + std::to_string(naomi_3->item()->gold_value())+
+                R"(\D)" + naomi_3->contents_name() + "! For just " + item_price(data, naomi_3)+
                 R"( Gilder, it can be put to work to make all your dreams come true! Want it? \0100\Y)"
         ).format();
 
         strings.string(4) = TextboxFormatter(
-                R"(\D)" + naomi_4->item()->name() + "! "
+                R"(\D)" + naomi_4->contents_name() + "! "
                 "Hmm, pricey, but a prime choice for the especially discriminating. "
-                "It's " + std::to_string(naomi_4->item()->gold_value()) + R"( Gilder, ok? \0100\Y)"
+                "It's " + item_price(data, naomi_4) + R"( Gilder, ok? \0100\Y)"
         ).format();
 
-        strings.string(57) = R"(\BReceived a )" + naomi_4->item()->name() + R"(.)";
+        strings.string(57) = R"(\BReceived a )" + naomi_4->contents_name() + R"(.)";
 
         strings.apply_on_data(data);
     }

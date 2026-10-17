@@ -15,6 +15,27 @@ std::string ItemSource::pretty_name() const
     return pretty_name;
 }
 
+void ItemSource::item(const Item* item)
+{
+    _item = item;
+    _remote.reset();
+}
+
+void ItemSource::remote(RemoteContents contents)
+{
+    _item = nullptr;
+    _remote = std::move(contents);
+}
+
+std::string ItemSource::contents_name() const
+{
+    if(_remote)
+        return _remote->player + " - " + _remote->item;
+    if(_item)
+        return _item->name();
+    return "Nothing";
+}
+
 int ItemSource::fill_priority() const
 {
     int priority = 0;

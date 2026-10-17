@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,6 +12,24 @@ class GameData;
 class RandomizerWorld;
 class WorldNode;
 
+/// How another world's item should be treated once a client exists.
+/// The randomizer stores this and does not act on it. Trap has no effect.
+enum class RemoteClassification : uint8_t
+{
+    Progression,
+    Useful,
+    Filler,
+    Trap
+};
+
+/// An item granted by another game, shown when this source is collected.
+struct RemoteContents
+{
+    std::string player;
+    std::string item;
+    RemoteClassification classification = RemoteClassification::Filler;
+};
+
 class ItemSource
 {
 private:
@@ -20,8 +39,13 @@ private:
     /// The name used to describe this ItemSource
     std::string _name;
 
-    /// The item contained inside this ItemSource
+    /// The item contained inside this ItemSource. Null when the source is empty
+    /// or when it holds a remote item.
     const Item* _item = nullptr;
+
+    /// Set when the source holds another world's item. _item stays null so the
+    /// solver does not grant an Alundra item.
+    std::optional<RemoteContents> _remote;
 
     /// The item contained inside this ItemSource in the base game
     const Item* _vanilla_item = nullptr;
@@ -63,10 +87,18 @@ public:
     [[nodiscard]] std::string pretty_name() const;
 
     [[nodiscard]] const Item* item() const { return _item; }
-    virtual void item(const Item* item) { _item = item; }
+    virtual void item(const Item* item);
 
-    /// A source is empty if it contains no item, but not if it contains ITEM_NONE
-    [[nodiscard]] bool is_empty() const { return _item == nullptr; }
+    [[nodiscard]] bool is_remote() const { return _remote.has_value(); }
+    [[nodiscard]] const RemoteContents* remote() const { return _remote ? &*_remote : nullptr; }
+    void remote(RemoteContents contents);
+
+    /// Alundra item name, or "player - item" when the source is remote.
+    [[nodiscard]] std::string contents_name() const;
+
+    /// A source is empty if it contains no Alundra item and no remote item.
+    /// ITEM_NONE is an item, so a source holding it is not empty.
+    [[nodiscard]] bool is_empty() const { return _item == nullptr && !_remote.has_value(); }
 
     [[nodiscard]] const Item* vanilla_item() const { return _vanilla_item; }
     void vanilla_item(const Item* item) { _vanilla_item = item; }

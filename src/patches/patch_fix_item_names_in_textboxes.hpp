@@ -31,8 +31,8 @@ private:
         RoomStrings strings(MAP_OVERWORLD_B3, data);
 
         ItemSource* king_snow_source = world.item_source("Overworld B3: King Snow reward for dying a specified amount of times (Legend Sword)");
-        stringtools::replace(strings.string(0), "Legendary\\NSword", king_snow_source->item()->name());
-        stringtools::replace(strings.string(3), "the Legendary Sword!", king_snow_source->item()->name());
+        stringtools::replace(strings.string(0), "Legendary\\NSword", king_snow_source->contents_name());
+        stringtools::replace(strings.string(3), "the Legendary Sword!", king_snow_source->contents_name());
 
         strings.apply_on_data(data);
     }
@@ -44,14 +44,14 @@ private:
 
         // Fix Nirude exterior rewards after Nirude's Lair
         RoomStrings strings(MAP_OVERWORLD_E1, data);
-        stringtools::replace(strings.string(34), "the Topaz Crest", topaz_crest_source->item()->name());
-        stringtools::replace(strings.string(36), "the Aqua Cape", aqua_cape_source->item()->name());
+        stringtools::replace(strings.string(34), "the Topaz Crest", topaz_crest_source->contents_name());
+        stringtools::replace(strings.string(36), "the Aqua Cape", aqua_cape_source->contents_name());
         strings.apply_on_data(data);
 
         // Fix second map variant
         RoomStrings strings_variant(MAP_OVERWORLD_E1_VARIANT, data);
-        stringtools::replace(strings_variant.string(34), "the Topaz Crest", topaz_crest_source->item()->name());
-        stringtools::replace(strings_variant.string(36), "the Aqua Cape", aqua_cape_source->item()->name());
+        stringtools::replace(strings_variant.string(34), "the Topaz Crest", topaz_crest_source->contents_name());
+        stringtools::replace(strings_variant.string(36), "the Aqua Cape", aqua_cape_source->contents_name());
         strings_variant.apply_on_data(data);
     }
 
@@ -65,25 +65,25 @@ private:
         ItemSource* arena_2_source = world.item_source("Riverside Casino: 'Slime Smash' second reward (Gilded Falcon)");
 
         RoomStrings roulette_strings(MAP_CASINO_ROULETTE, data);
-        stringtools::replace(roulette_strings.string(44), "Life Vessel", roulette_1_source->item()->name());
-        stringtools::replace(roulette_strings.string(24), "a Gilded Falcon", roulette_2_source->item()->name());
+        stringtools::replace(roulette_strings.string(44), "Life Vessel", roulette_1_source->contents_name());
+        stringtools::replace(roulette_strings.string(24), "a Gilded Falcon", roulette_2_source->contents_name());
         roulette_strings.apply_on_data(data);
 
         RoomStrings shoot_strings(MAP_CASINO_SHOOTING_RANGE, data);
-        stringtools::replace(shoot_strings.string(20), "Life Vessel", shooting_1_source->item()->name());
-        stringtools::replace(shoot_strings.string(24), "a Gilded Falcon", shooting_2_source->item()->name());
+        stringtools::replace(shoot_strings.string(20), "Life Vessel", shooting_1_source->contents_name());
+        stringtools::replace(shoot_strings.string(24), "a Gilded Falcon", shooting_2_source->contents_name());
         shoot_strings.apply_on_data(data);
 
         RoomStrings arena_strings(MAP_CASINO_SLIME_ARENA, data);
-        stringtools::replace(arena_strings.string(80), "Life Vessel", arena_1_source->item()->name());
-        stringtools::replace(arena_strings.string(81), "fantastic Gilded\\NFalcon!", arena_2_source->item()->name() + "!\\N");
-        stringtools::replace(arena_strings.string(24), "a Gilded Falcon", arena_2_source->item()->name());
+        stringtools::replace(arena_strings.string(80), "Life Vessel", arena_1_source->contents_name());
+        stringtools::replace(arena_strings.string(81), "fantastic Gilded\\NFalcon!", arena_2_source->contents_name() + "!\\N");
+        stringtools::replace(arena_strings.string(24), "a Gilded Falcon", arena_2_source->contents_name());
         arena_strings.apply_on_data(data);
 
         RoomStrings bar_strings(MAP_RIVERSIDE_BAR, data);
-        bar_strings.string(22) = "\\C'Slime Smash' rewards:\\N- " + arena_1_source->item()->name() + "\\N- " + arena_2_source->item()->name();
-        bar_strings.string(23) = "\\C'Hit Your Mark' rewards:\\N- " + shooting_1_source->item()->name() + "\\N- " + shooting_2_source->item()->name();
-        bar_strings.string(24) = "\\C'Wheel of Fortune' rewards:\\N- " + roulette_1_source->item()->name() + "\\N- " + roulette_2_source->item()->name();
+        bar_strings.string(22) = "\\C'Slime Smash' rewards:\\N- " + arena_1_source->contents_name() + "\\N- " + arena_2_source->contents_name();
+        bar_strings.string(23) = "\\C'Hit Your Mark' rewards:\\N- " + shooting_1_source->contents_name() + "\\N- " + shooting_2_source->contents_name();
+        bar_strings.string(24) = "\\C'Wheel of Fortune' rewards:\\N- " + roulette_1_source->contents_name() + "\\N- " + roulette_2_source->contents_name();
         bar_strings.apply_on_data(data);
     }
 
@@ -92,7 +92,7 @@ private:
         ItemSource* nava_diamond_crest_source = world.item_source("Nava's Keep: Falling item revealed using Zolist's Stone (Diamond Crest)");
 
         RoomStrings strings(MAP_432, data);
-        stringtools::replace(strings.string(70), "the Diamond Crest", nava_diamond_crest_source->item()->name());
+        stringtools::replace(strings.string(70), "the Diamond Crest", nava_diamond_crest_source->contents_name());
         strings.apply_on_data(data);
     }
 
@@ -102,7 +102,7 @@ private:
 
         RoomStrings strings(MAP_398, data);
 
-        strings.string(31) = R"(\BReceived )" + lurvy_repair->item()->name() + ".";
+        strings.string(31) = R"(\BReceived )" + lurvy_repair->contents_name() + ".";
 
         strings.apply_on_data(data);
     }
@@ -113,8 +113,8 @@ private:
         ItemSource* blue_chest_2 = world.item_source("Inoa: Second item in Jess's blue chest (Broken Armor)");
 
         RoomStrings strings(MAP_JESS_HOUSE_CHEST_OPENABLE, data);
-        strings.string(13) = R"(\BReceived )" + blue_chest_1->item()->name() + ".";
-        strings.string(15) = R"(\BReceived )" + blue_chest_2->item()->name() + ".";
+        strings.string(13) = R"(\BReceived )" + blue_chest_1->contents_name() + ".";
+        strings.string(15) = R"(\BReceived )" + blue_chest_2->contents_name() + ".";
         strings.apply_on_data(data);
     }
 };

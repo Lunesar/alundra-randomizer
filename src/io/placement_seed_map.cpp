@@ -17,7 +17,10 @@
 
 namespace
 {
-    constexpr int PLACEMENT_FORMAT = 1;
+    constexpr int format_number(placement_seed_map::PlacementFormat format)
+    {
+        return static_cast<int>(format);
+    }
 
     bool parse_location_id(const std::string& key, uint16_t& location_id)
     {
@@ -45,7 +48,102 @@ namespace
         return true;
     }
 
-    std::map<uint16_t, uint8_t> read_placements_object(const Json& object)
+    void require_remote_text(const std::string& text, const std::string& field, std::size_t limit,
+                             const std::string& location_key)
+    {
+        if(text.empty() || text.size() > limit)
+        {
+            throw RandomizerException("Remote " + field + " for location " + location_key
+                                      + " must be 1.." + std::to_string(limit) + " characters.");
+        }
+
+        bool non_space = false;
+        for(unsigned char character : text)
+        {
+            if(character < 0x20 || character > 0x7E || character == '\\')
+            {
+                throw RandomizerException("Remote " + field + " for location " + location_key
+                                          + " must be printable ASCII without backslash controls.");
+            }
+            if(character != ' ')
+                non_space = true;
+        }
+
+        if(!non_space)
+        {
+            throw RandomizerException("Remote " + field + " for location " + location_key
+                                      + " must contain a visible character.");
+        }
+    }
+
+    RemoteClassification read_classification(const std::string& text, const std::string& location_key)
+    {
+        if(text == "progression")
+            return RemoteClassification::Progression;
+        if(text == "useful")
+            return RemoteClassification::Useful;
+        if(text == "filler")
+            return RemoteClassification::Filler;
+        if(text == "trap")
+            return RemoteClassification::Trap;
+
+        throw RandomizerException("Remote classification for location " + location_key
+                                  + " must be progression, useful, filler, or trap.");
+    }
+
+    RemoteContents read_remote_object(const Json& value, const std::string& location_key)
+    {
+        if(!value.is_object())
+        {
+            throw RandomizerException("Placement for location " + location_key
+                                      + " must be an item id or a remote item object.");
+        }
+
+        for(auto& [key, _] : value.items())
+        {
+            if(key == "player" || key == "item" || key == "classification")
+                continue;
+            throw RandomizerException("Unknown key '" + key + "' in remote item for location " + location_key + ".");
+        }
+
+        if(!value.contains("player") || !value.at("player").is_string()
+           || !value.contains("item") || !value.at("item").is_string()
+           || !value.contains("classification") || !value.at("classification").is_string())
+        {
+            throw RandomizerException("Remote item for location " + location_key
+                                      + " needs string keys player, item, and classification.");
+        }
+
+        RemoteContents remote;
+        remote.player = value.at("player").get<std::string>();
+        remote.item = value.at("item").get<std::string>();
+        require_remote_text(remote.player, "player", placement_seed_map::REMOTE_PLAYER_NAME_MAX, location_key);
+        require_remote_text(remote.item, "item", placement_seed_map::REMOTE_ITEM_NAME_MAX, location_key);
+        remote.classification = read_classification(value.at("classification").get<std::string>(), location_key);
+        return remote;
+    }
+
+    placement_seed_map::Placement read_item_id(const Json& value, const std::string& location_key)
+    {
+        if(!value.is_number_integer())
+        {
+            throw RandomizerException("Placement item id for location " + location_key
+                                      + " must be an integer item id.");
+        }
+
+        const int64_t raw_item_id = value.get<int64_t>();
+        if(raw_item_id < 0 || raw_item_id >= ITEM_COUNT)
+        {
+            throw RandomizerException("Placement item id " + std::to_string(raw_item_id)
+                                      + " for location " + location_key + " is not a valid item id.");
+        }
+
+        placement_seed_map::Placement placement;
+        placement.item_id = static_cast<uint8_t>(raw_item_id);
+        return placement;
+    }
+
+    std::map<uint16_t, placement_seed_map::Placement> read_placements_object(const Json& object, placement_seed_map::PlacementFormat format)
     {
         if(!object.is_object())
         {
@@ -55,7 +153,7 @@ namespace
         if(object.empty())
             throw RandomizerException("Placement seed map contains no locations.");
 
-        std::map<uint16_t, uint8_t> placements;
+        std::map<uint16_t, placement_seed_map::Placement> placements;
         for(auto& [key, value] : object.items())
         {
             uint16_t location_id = 0;
@@ -65,20 +163,18 @@ namespace
                                           + "' must be a decimal id with no leading zeros.");
             }
 
-            if(!value.is_number_integer())
+            placement_seed_map::Placement placement;
+            if(format == placement_seed_map::PlacementFormat::Multiworld && value.is_object())
             {
-                throw RandomizerException("Placement item id for location " + key
-                                          + " must be an integer item id.");
+                placement.remote = true;
+                placement.remote_item = read_remote_object(value, key);
+            }
+            else
+            {
+                placement = read_item_id(value, key);
             }
 
-            const int64_t raw_item_id = value.get<int64_t>();
-            if(raw_item_id < 0 || raw_item_id >= ITEM_COUNT)
-            {
-                throw RandomizerException("Placement item id " + std::to_string(raw_item_id)
-                                          + " for location " + key + " is not a valid item id.");
-            }
-
-            placements.emplace(location_id, static_cast<uint8_t>(raw_item_id));
+            placements.emplace(location_id, std::move(placement));
         }
 
         return placements;
@@ -157,16 +253,28 @@ placement_seed_map::Contents placement_seed_map::read(const std::filesystem::pat
     Contents contents;
     if(is_bare_placement_map(json))
     {
-        contents.placements = read_placements_object(json);
+        contents.placements = read_placements_object(json, placement_seed_map::PlacementFormat::Alundra);
         return contents;
     }
 
+    placement_seed_map::PlacementFormat format = placement_seed_map::PlacementFormat::Alundra;
     if(json.contains("format"))
     {
-        if(!json.at("format").is_number_integer() || json.at("format").get<int>() != PLACEMENT_FORMAT)
+        if(!json.at("format").is_number_integer())
         {
             throw RandomizerException("Unsupported placement seed map format in '" + path.string()
-                                      + "'. This build reads format " + std::to_string(PLACEMENT_FORMAT) + ".");
+                                      + "'. This build reads Alundra (1) and Multiworld (2).");
+        }
+
+        const int format_value = json.at("format").get<int>();
+        if(format_value == format_number(placement_seed_map::PlacementFormat::Alundra))
+            format = placement_seed_map::PlacementFormat::Alundra;
+        else if(format_value == format_number(placement_seed_map::PlacementFormat::Multiworld))
+            format = placement_seed_map::PlacementFormat::Multiworld;
+        else
+        {
+            throw RandomizerException("Unsupported placement seed map format in '" + path.string()
+                                      + "'. This build reads Alundra (1) and Multiworld (2).");
         }
     }
 
@@ -224,7 +332,7 @@ placement_seed_map::Contents placement_seed_map::read(const std::filesystem::pat
                                   + "' is missing \"placements\" (location id to item id).");
     }
 
-    contents.placements = read_placements_object(json.at("placements"));
+    contents.placements = read_placements_object(json.at("placements"), format);
 
     for(auto& [key, _] : json.items())
     {
@@ -246,6 +354,13 @@ void placement_seed_map::write(const std::filesystem::path& path, const Randomiz
     Json placements = Json::object();
     for(const auto& [location_id, source] : by_location_id)
     {
+        if(source->is_remote())
+        {
+            throw RandomizerException("Location " + std::to_string(location_id) + " (" + source->name()
+                                      + ") holds another world's item. This program writes the Alundra format and cannot "
+                                        "send an Alundra item out, or record a remote item.");
+        }
+
         if(source->item() == nullptr)
         {
             throw RandomizerException("Location " + std::to_string(location_id) + " (" + source->name()
@@ -256,7 +371,7 @@ void placement_seed_map::write(const std::filesystem::path& path, const Randomiz
     }
 
     Json json = Json::object();
-    json["format"] = PLACEMENT_FORMAT;
+    json["format"] = format_number(placement_seed_map::PlacementFormat::Alundra);
     json["permalink"] = options.permalink();
     json["hashSentence"] = options.hash_sentence();
     json["placements"] = std::move(placements);
@@ -270,11 +385,12 @@ void placement_seed_map::write(const std::filesystem::path& path, const Randomiz
         throw RandomizerException("Could not write placement seed map at path '" + path.string() + "'.");
 }
 
-void placement_seed_map::apply(RandomizerWorld& world, const GameData& game_data, const std::map<uint16_t, uint8_t>& placements)
+void placement_seed_map::apply(RandomizerWorld& world, const GameData& game_data,
+                               const std::map<uint16_t, Placement>& placements)
 {
     const std::map<uint16_t, ItemSource*> by_location_id = index_item_sources(world);
 
-    for(const auto& [location_id, item_id] : placements)
+    for(const auto& [location_id, placement] : placements)
     {
         const auto found = by_location_id.find(location_id);
         if(found == by_location_id.end())
@@ -283,13 +399,19 @@ void placement_seed_map::apply(RandomizerWorld& world, const GameData& game_data
                                       + std::to_string(location_id) + ".");
         }
 
-        if(item_id >= ITEM_COUNT)
+        if(placement.remote)
         {
-            throw RandomizerException("Placement item id " + std::to_string(item_id) + " for location "
+            found->second->remote(placement.remote_item);
+            continue;
+        }
+
+        if(placement.item_id >= ITEM_COUNT)
+        {
+            throw RandomizerException("Placement item id " + std::to_string(placement.item_id) + " for location "
                                       + std::to_string(location_id) + " is not a valid item id.");
         }
 
-        found->second->item(game_data.item(item_id));
+        found->second->item(game_data.item(placement.item_id));
     }
 
     for(const auto& [location_id, source] : by_location_id)

@@ -96,6 +96,7 @@ set(SOURCES
         "src/patches/patch_fix_item_names_in_textboxes.hpp"
         "src/patches/patch_split_boots_effects.hpp"
         "src/patches/patch_apply_item_sources.hpp"
+        "src/patches/patch_apply_item_sources.cpp"
         "src/patches/patch_apply_hint_text.hpp"
         "src/patches/patch_apply_shops_text.hpp"
         "src/patches/patch_remove_nava_instances.hpp"
@@ -144,7 +145,10 @@ set(SOURCES
         "src/world_shuffler.cpp"
         "src/world_solver.hpp"
         "src/world_solver.cpp"
-        "src/main.cpp"
         )
 
-add_executable(alundra-randomizer "${SOURCES}")
+add_executable(alundra-randomizer src/main.cpp ${SOURCES})
+
+add_executable(placement_remote_test tests/placement_remote_test.cpp ${SOURCES})
+target_compile_definitions(placement_remote_test PRIVATE
+        "PLACEMENT_MULTIWORLD_FORMAT_FIXTURE=\"${CMAKE_SOURCE_DIR}/tests/fixtures/placement_multiworld_format.json\"")

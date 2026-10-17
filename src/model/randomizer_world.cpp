@@ -291,7 +291,7 @@ void RandomizerWorld::handle_progressive_items(const RandomizerOptions& options,
         // Update the items distribution to remove specific item tiers and replace them by item upgrades
         for(const Item* item : items_to_convert)
         {
-            uint8_t amount = _items_distribution[item->id()];
+            uint16_t amount = _items_distribution[item->id()];
             _items_distribution[upgrade_item->id()] += amount;
             _items_distribution[item->id()] -= amount;
         }

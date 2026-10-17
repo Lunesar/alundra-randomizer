@@ -33,6 +33,14 @@ public:
         BinaryFile::save_as(output_path);
     }
 
+    // Address inject_code will return for a blob of this size. The blob can
+    // embed absolute pointers, then be injected, and those pointers stay valid:
+    // save() pads below the blob and shifts the load address by the same amount.
+    [[nodiscard]] uint32_t next_inject_address(uint32_t code_size) const
+    {
+        return _initial_code_start_addr - static_cast<uint32_t>(_prepended_bytes.size() + code_size);
+    }
+
     uint32_t inject_code(const MipsCode& code)
     {
         _prepended_bytes.insert(_prepended_bytes.begin(), code.begin(), code.end());

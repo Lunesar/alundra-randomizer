@@ -95,6 +95,11 @@ constexpr uint8_t ITEM_CURIOUS_KEY		=  0x59;
 
 constexpr uint8_t ITEM_COUNT = ITEM_CURIOUS_KEY + 1;
 
+// Not an Alundra item, so it stays outside ITEM_COUNT and itemsDistribution.
+// The disc uses this id when a check holds another world's item. getcontentsitemid
+// accepts a direct id below 0x62, and 0x5A is the first id with no item row.
+constexpr uint8_t ITEM_REMOTE = 0x5A;
+
 // Items introduced by the randomizer
 
 constexpr uint8_t ITEM_SWORD_UPGRADE        = 0x0B;

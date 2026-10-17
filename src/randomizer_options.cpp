@@ -154,10 +154,10 @@ Json RandomizerOptions::to_json(const GameData& game_data, const RandomizerWorld
         json["randomizerSettings"]["prePlacedCrests"] = preplaced_names;
     }
 
-    std::map<std::string, uint8_t> items_distribution_with_names;
+    std::map<std::string, uint16_t> items_distribution_with_names;
     for(size_t i=0 ; i < _items_distribution.size() ; ++i)
     {
-        uint8_t amount = _items_distribution[i];
+        uint16_t amount = _items_distribution[i];
         if(amount > 0)
             items_distribution_with_names[game_data.item(i)->name()] = amount;
     }
@@ -222,7 +222,7 @@ void RandomizerOptions::apply_randomizer_settings_json(const Json& json, const G
             _preplaced_crests = read_preplaced_crests(value, game_data);
         else if(key == "itemsDistribution")
         {
-            std::map<std::string, uint8_t> items_distribution = value;
+            std::map<std::string, uint16_t> items_distribution = value;
             for(auto& [item_name, quantity] : items_distribution)
             {
                 uint8_t item_id = game_data.item(item_name)->id();
@@ -394,7 +394,7 @@ void RandomizerOptions::parse_permalink(std::string permalink)
     _starting_gold = bitpack.unpack<uint16_t>();
     _casino_win_count_for_last_reward = bitpack.unpack<uint8_t>();
 
-    _items_distribution = bitpack.unpack_array<uint8_t, ITEM_COUNT>();
+    _items_distribution = bitpack.unpack_array<uint16_t, ITEM_COUNT>();
     _fixed_item_sources = bitpack.unpack_map<uint16_t, uint8_t>();
     _item_sources_without_progression = bitpack.unpack_vector<uint16_t>();
     _starting_inventory = bitpack.unpack_vector<uint8_t>();

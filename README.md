@@ -59,6 +59,8 @@ The default command still randomizes and patches in one step. Two flags split th
 
 `placements` in the file maps each location id to the in-game item id placed there. Location ids are the stable ids on item sources. The file also stores the permalink `seed`, `gameSettings`, and `randomizerSettings` that are needed to patch on another computer.
 
+A Multiworld file (`"format": 2`) can also mark a location as another world's item (the sending player's name, the item name, and a classification). The schema is in `src/io/placement_seed_map.hpp`. `--placement-out` still writes the Alundra format (`"format": 1`).
+
 ```
 alundra-randomizer --preset=default --placement-out=./seeds/ --nopause
 alundra-randomizer --placement-in=./seeds/placement.json --nopause

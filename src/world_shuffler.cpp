@@ -80,12 +80,14 @@ void WorldShuffler::init_item_pool()
 
     _item_pool.reserve(_world.item_sources().size());
 
-    std::array<uint8_t, ITEM_COUNT> distribution_copy = _world.items_distribution();
+    std::array<uint16_t, ITEM_COUNT> distribution_copy = _world.items_distribution();
     
     // Count quantities already in place
     for(ItemSource* source : _world.item_sources())
     {
-        if(source->is_empty())
+        // A remote check is filled, but it is not an Alundra item, so it does not
+        // consume a count from the pool.
+        if(source->item() == nullptr)
             continue;
 
         uint8_t item_id = source->item()->id();
@@ -100,7 +102,7 @@ void WorldShuffler::init_item_pool()
     // Build the item pool from the quantities read inside the ItemDistribution objects, and shuffle it
     for(size_t item_id=0 ; item_id < distribution_copy.size() ; ++item_id)
     {
-        uint8_t quantity = distribution_copy[item_id];
+        uint16_t quantity = distribution_copy[item_id];
         for(uint16_t i=0 ; i<quantity ; ++i)
             _item_pool.emplace_back(_game_data.item(item_id));
     }

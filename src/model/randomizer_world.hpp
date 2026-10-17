@@ -41,7 +41,7 @@ private:
      * An editable copy of the items distribution from RandomizerOptions.
      * Contains the number of each item type to be scattered inside the world during randomization.
      */
-    std::array<uint8_t, ITEM_COUNT> _items_distribution {};
+    std::array<uint16_t, ITEM_COUNT> _items_distribution {};
 
     /// A list of items owned by player on game start
     std::vector<const Item*> _starting_inventory;
@@ -76,7 +76,7 @@ public:
     [[nodiscard]] const HintSource* hint_source(const std::string& hint_source_id) const { return _hint_sources.at(hint_source_id); }
     [[nodiscard]] HintSource* hint_source(const std::string& hint_source_id) { return _hint_sources.at(hint_source_id); }
 
-    [[nodiscard]] const std::array<uint8_t, ITEM_COUNT>& items_distribution() const { return _items_distribution; }
+    [[nodiscard]] const std::array<uint16_t, ITEM_COUNT>& items_distribution() const { return _items_distribution; }
 
     [[nodiscard]] std::vector<const Item*> starting_inventory() const { return _starting_inventory; }
 
