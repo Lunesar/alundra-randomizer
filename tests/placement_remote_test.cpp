@@ -39,6 +39,12 @@ namespace
     constexpr uint32_t SITE_C_WORDS[] = { 0x3C01800C, 0x00220821, 0x8C257DE4 };
     constexpr uint32_t SITE_C_NEXT = 0x3C108012;
 
+    constexpr uint32_t SHOP_RECEIVE_CALL = 0x2117C;
+    constexpr uint32_t SHOP_RECEIVE_JAL = 0x0C00D205;
+    constexpr uint32_t SHOP_RECEIVE_DELAY = 0x00E08021;
+    constexpr uint32_t SHOP_RECEIVE_PC = 0x8004097C;
+    constexpr uint32_t CAN_RECEIVE = 0x80034814;
+
     constexpr uint32_t ITEM_INFO_2_FILE = 0xA85E4;
     constexpr uint32_t ITEM_QTY_FILE = 0x9C650;
     constexpr uint32_t SPRITE_TABLE = 0x830;
@@ -118,6 +124,8 @@ namespace
         exe.set_long_le(NAME_SITE_A + 16, 0x0C0211BA);
         exe.set_long_le(NAME_SITE_B + 16, 0x0C0211BA);
         exe.set_long_le(NAME_SITE_C + 12, SITE_C_NEXT);
+        exe.set_long_le(SHOP_RECEIVE_CALL, SHOP_RECEIVE_JAL);
+        exe.set_long_le(SHOP_RECEIVE_CALL + 4, SHOP_RECEIVE_DELAY);
         exe.set_word_le(ITEM_QTY_FILE + static_cast<uint32_t>(ITEM_REMOTE) * 10 + 6, 0xFFFF);
         exe.set_long_le(ITEM_INFO_2_FILE + static_cast<uint32_t>(herbs_id) * 8, LOCAL_NAME_POINTER);
     }
@@ -353,6 +361,92 @@ namespace
         throw std::runtime_error("Lookup did not return");
     }
 
+    // Shop opcode 0x82 calls this with the item id in a0. A remote id returns
+    // 1 and must not reach the retail receive call. Any other id jumps there
+    // with a0 unchanged. s0 belongs to the caller.
+    uint32_t run_shop_receive(const BinaryFile& memory, uint32_t load, uint32_t entry, uint32_t item_id, bool& reached_retail)
+    {
+        uint32_t reg[32] {};
+        reg[4] = item_id;
+        reg[16] = 0x11111111;
+        reg[31] = RETURN_SENTINEL;
+        uint32_t pc = entry;
+        bool in_delay = false;
+        bool taken = false;
+        uint32_t dest = 0;
+        reached_retail = false;
+
+        for(int step = 0; step < 32; ++step)
+        {
+            if(pc == CAN_RECEIVE || pc == RETURN_SENTINEL)
+            {
+                reached_retail = pc == CAN_RECEIVE;
+                check(reg[4] == item_id, "Shop receive changed the item id");
+                check(reg[16] == 0x11111111, "Shop receive clobbered s0");
+                return reg[2];
+            }
+
+            const uint32_t instr = memory.get_long_le(file_offset_for_va(pc, load));
+            const uint32_t op = instr >> 26;
+            const uint32_t rs = (instr >> 21) & 31u;
+            const uint32_t rt = (instr >> 16) & 31u;
+            const int32_t simm = static_cast<int16_t>(instr & 0xFFFFu);
+            bool branch = false;
+            bool this_taken = false;
+            uint32_t this_dest = 0;
+            auto arm = [&](bool condition, uint32_t target) {
+                branch = true;
+                this_taken = condition;
+                this_dest = target;
+            };
+
+            if(instr == 0)
+            {
+            }
+            else if(op == 0 && (instr & 63u) == 0x08)
+            {
+                arm(true, reg[rs]);
+            }
+            else if(op == 0x02)
+            {
+                arm(true, (pc & 0xF0000000u) | ((instr & 0x03FFFFFFu) << 2));
+            }
+            else if(op == 0x04)
+            {
+                arm(reg[rs] == reg[rt], pc + 4u + static_cast<uint32_t>(simm * 4));
+            }
+            else if(op == 0x09)
+            {
+                if(rt != 0)
+                    reg[rt] = reg[rs] + static_cast<uint32_t>(simm);
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported shop-receive instruction");
+            }
+
+            check(!(branch && in_delay), "Shop receive branches in a delay slot");
+            if(in_delay)
+            {
+                pc = taken ? dest : pc + 4;
+                in_delay = false;
+            }
+            else if(branch)
+            {
+                in_delay = true;
+                taken = this_taken;
+                dest = this_dest;
+                pc += 4;
+            }
+            else
+            {
+                pc += 4;
+            }
+        }
+
+        throw std::runtime_error("Shop receive did not return");
+    }
+
     void assert_load_delays(const BinaryFile& exe, uint32_t entry_offset, uint32_t code_end)
     {
         for(uint32_t offset = entry_offset; offset + 4 <= code_end; offset += 4)
@@ -510,6 +604,10 @@ namespace
         check(exe.get_long_le(NAME_SITE_A) == SITE_A_WORDS[0], "Alundra format rewrote the chest name load");
         check(exe.get_long_le(NAME_SITE_B) == SITE_B_WORDS[0], "Alundra format rewrote the obtained name load");
         check(exe.get_long_le(NAME_SITE_C) == SITE_C_WORDS[0], "Alundra format rewrote the inventory-full name load");
+        check(exe.get_long_le(SHOP_RECEIVE_CALL) == SHOP_RECEIVE_JAL,
+              "Alundra format rewrote the shop receive call");
+        check(exe.get_long_le(SHOP_RECEIVE_CALL + 4) == SHOP_RECEIVE_DELAY,
+              "Alundra format rewrote the shop receive delay");
         check(exe.get_word_le(ITEM_QTY_FILE + static_cast<uint32_t>(ITEM_REMOTE) * 10 + 6) == 0xFFFF,
               "Alundra format wrote the remote quantity slot");
         check(exe.get_long_le(ITEM_INFO_2_FILE + static_cast<uint32_t>(herbs_id) * 8) == LOCAL_NAME_POINTER,
@@ -630,6 +728,11 @@ namespace
               "Remote shop sprite index changed");
         check(exe.get_word_le(ITEM_QTY_FILE + static_cast<uint32_t>(ITEM_REMOTE) * 10 + 6) == 0,
               "Remote item can still be added to inventory");
+        check(exe.get_long_le(SHOP_RECEIVE_CALL + 4) == SHOP_RECEIVE_DELAY,
+              "Shop receive hook overwrote its delay slot");
+        const uint32_t shop_jal = exe.get_long_le(SHOP_RECEIVE_CALL);
+        check((shop_jal >> 26) == 3, "Shop receive call was not hooked");
+        const uint32_t shop_stub = jal_target(shop_jal, SHOP_RECEIVE_PC);
 
         const uint32_t site_a = exe.get_long_le(NAME_SITE_A);
         const uint32_t target = jal_target(site_a, SITE_A_PC);
@@ -682,6 +785,13 @@ namespace
               "A chest with no flag did not fall back to AP Item");
         const uint32_t local_pointer = run_lookup(exe, load, target, herbs_id, CHEST_FLAG);
         check(local_pointer == LOCAL_NAME_POINTER, "Local item lookup no longer uses the item-name table");
+
+        bool reached_retail = true;
+        const uint32_t remote_receive = run_shop_receive(exe, load, shop_stub, ITEM_REMOTE, reached_retail);
+        check(!reached_retail && remote_receive == 1, "Remote shop purchase is still refused");
+        reached_retail = false;
+        run_shop_receive(exe, load, shop_stub, herbs_id, reached_retail);
+        check(reached_retail, "Alundra shop item no longer uses the retail receive check");
     }
 }
 

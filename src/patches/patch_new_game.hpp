@@ -110,11 +110,14 @@ private:
              * Developers only set valid physics properties to item objects that could be encountered inside shops,
              * not to every possible item object. This means, if we want any item to work inside shops, we need to copy
              * the "good" physics properties from a well-handled object to all other item objects. This code chunk does this.
+             *
+             * The retail walk covers sprite slots 0x1F through 0x77 and stops on the empty slot 0x78.
+             * A remote item occupies that slot. Leaving it out freezes the game when the item is thrown.
              */
             func.set_(reg_T5, 0x800FEFB4);
             func.set_(reg_T6, 0x800FEFFC);
             func.set_(reg_AT, 0x800CC004);
-            func.set_(reg_T4, 0x800CC168);
+            func.set_(reg_T4, 0x800CC16C);
             func.label_("entity_type_def_loop");
             {
                 func.lw(reg_T3, reg_AT);

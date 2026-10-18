@@ -44,6 +44,15 @@ namespace
     constexpr uint32_t SITE_B_WORDS[] = { 0x001310C0, 0x3C01800C, 0x00220821, 0x8C257DE4 };
     constexpr uint32_t SITE_C_WORDS[] = { 0x3C01800C, 0x00220821, 0x8C257DE4 };
 
+    // Shop opcode 0x82 loads the item id and calls this. The call adds one
+    // of that item, and the opcode stores failure when the quantity did not
+    // grow. Max quantity 0 therefore looks like a full bag. A remote item is
+    // not an inventory stack: report success and leave the count alone. The
+    // shop script then takes the gilder and clears the counter.
+    constexpr uint32_t SHOP_RECEIVE_CALL = 0x2117C; // 8004097C
+    constexpr uint32_t SHOP_RECEIVE_WORDS[] = { 0x0C00D205, 0x00E08021 }; // jal 80034814; addu s0, a3, zero
+    constexpr uint32_t CAN_RECEIVE = 0x80034814;
+
     // Chest-open spawn stores the parent chest here and sets state 2. The
     // collected flag is the word at parent+0x40, which is also what that
     // path passes to FlagOn. A null word is a different spawn and is a miss.
@@ -272,6 +281,24 @@ namespace
         data.set_long_le(SPRITE_TABLE + static_cast<uint32_t>(REMOTE_SPRITE) * 4,
                          REMOTE_SPRITE_HEADER - SPRITE_BANK_BASE);
     }
+
+    void install_remote_shop_receive(PsxExeFile& exe)
+    {
+        expect_words(exe, SHOP_RECEIVE_CALL, SHOP_RECEIVE_WORDS, 2, "shop receive");
+
+        MipsCode code;
+        code.addiu(reg_T0, reg_ZERO, ITEM_REMOTE);
+        code.beq(reg_A0, reg_T0, "remote");
+        code.j(CAN_RECEIVE);
+        code.label_("remote");
+        code.addiu(reg_V0, reg_ZERO, 1);
+        code.jr(reg_RA);
+
+        const uint32_t injected = exe.inject_code(code);
+        MipsCode site;
+        site.jal(injected, false);
+        exe.set_code(SHOP_RECEIVE_CALL, site);
+    }
 }
 
 void PatchApplyItemSources::install_remote_lookup(PsxExeFile& exe, const std::vector<RemoteNote>& notes)
@@ -486,6 +513,11 @@ void PatchApplyItemSources::alter_exe_file(PsxExeFile& exe, const GameData&, con
     // GiveItem sends 0x5A past its 0x45..0x56 jump table into TryIncrease.
     // Max quantity 0 means that call adds nothing. The three name hooks
     // replace the pointer load; FlagOn still runs with the chest flag.
+    // The shop receive opcode is separate: it refuses the sale unless the
+    // quantity grows, so a remote sale needs its own success return.
     if(!_remotes.empty())
+    {
         install_remote_lookup(exe, _remotes);
+        install_remote_shop_receive(exe);
+    }
 }
