@@ -74,6 +74,8 @@ Json ItemSource::to_json() const
         json["vanillaItem"] = _vanilla_item->name();
     if(_forbid_precious_items)
         json["forbidPreciousItems"] = _forbid_precious_items;
+    if(_event_code)
+        json["eventCode"] = *_event_code;
 
     return json;
 }
@@ -104,6 +106,8 @@ ItemSource* ItemSource::from_json(const Json& json, const GameData& game_data, c
             source->vanilla_item(game_data.item(std::string(value)));
         else if(key == "forbidPreciousItems")
             source->forbid_precious_items(value);
+        else if(key == "eventCode")
+            source->event_code(value);
         else
             throw RandomizerException("Unknown key '" + key + "' in ItemSource JSON");
     }

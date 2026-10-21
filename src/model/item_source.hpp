@@ -75,6 +75,10 @@ private:
     /// An array of hints which can be used to subtly point at this ItemSource
     std::vector<std::string> _hints;
 
+    /// FlagOn bit index for this source. Unset when the code is unknown.
+    /// The patcher does not read it.
+    std::optional<uint16_t> _event_code;
+
 public:
     ItemSource() = default;
     virtual ~ItemSource() = default;
@@ -129,6 +133,9 @@ public:
 
     [[nodiscard]] bool forbid_precious_items() const { return _forbid_precious_items; }
     void forbid_precious_items(bool value) { _forbid_precious_items = value; }
+
+    [[nodiscard]] std::optional<uint16_t> event_code() const { return _event_code; }
+    void event_code(uint16_t code) { _event_code = code; }
 
     [[nodiscard]] int fill_priority() const;
 
