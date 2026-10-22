@@ -455,7 +455,8 @@
         "nodeId": "overworld_b3_behind_power_glove",
         "address": "29B530",
         "spriteAddress": "29B87A",
-        "vanillaItem": "Legend Sword"
+        "vanillaItem": "Legend Sword",
+        "eventCode": 1787
     },
     {
         "id": 56,
@@ -470,7 +471,8 @@
         "name": "Riverside Casino: 'Wheel of Fortune' second reward",
         "nodeId": "riverside_casino",
         "address": "65FD0C1",
-        "vanillaItem": "Gilded Falcon"
+        "vanillaItem": "Gilded Falcon",
+        "eventCode": 1564
     },
     {
         "id": 58,
@@ -485,7 +487,8 @@
         "name": "Riverside Casino: 'Hit Your Mark' second reward",
         "nodeId": "riverside_casino_shooting_range",
         "address": "65C7A80",
-        "vanillaItem": "Gilded Falcon"
+        "vanillaItem": "Gilded Falcon",
+        "eventCode": 1558
     },
     {
         "id": 60,
@@ -500,7 +503,8 @@
         "name": "Riverside Casino: 'Slime Smash' second reward",
         "nodeId": "riverside_casino",
         "address": "65978F9",
-        "vanillaItem": "Gilded Falcon"
+        "vanillaItem": "Gilded Falcon",
+        "eventCode": 1570
     },
     {
         "id": 62,
