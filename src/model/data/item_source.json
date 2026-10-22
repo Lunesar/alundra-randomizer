@@ -2124,7 +2124,8 @@
             "1EBF92E"
         ],
         "merrickItemAddress": "7CE7C",
-        "vanillaItem": "Life Vessel"
+        "vanillaItem": "Life Vessel",
+        "eventCode": 1433
     },
     {
         "id": 255,
@@ -2137,7 +2138,8 @@
             "1EBF9E2"
         ],
         "merrickItemAddress": "7CE80",
-        "vanillaItem": "Olga's Ring"
+        "vanillaItem": "Olga's Ring",
+        "eventCode": 1434
     },
     {
         "id": 256,
@@ -2149,7 +2151,8 @@
             "1EBF956"
         ],
         "merrickItemAddress": "7CE84",
-        "vanillaItem": "Life Vessel"
+        "vanillaItem": "Life Vessel",
+        "eventCode": 1435
     },
     {
         "id": 257,
@@ -2162,7 +2165,8 @@
             "1EBF9F6"
         ],
         "merrickItemAddress": "7CE88",
-        "vanillaItem": "Silver Armlet"
+        "vanillaItem": "Silver Armlet",
+        "eventCode": 1436
     },
     {
         "id": 258,
@@ -2174,7 +2178,8 @@
             "1EBF97E"
         ],
         "merrickItemAddress": "7CE8C",
-        "vanillaItem": "Life Vessel"
+        "vanillaItem": "Life Vessel",
+        "eventCode": 1437
     },
     {
         "id": 259,
@@ -2187,7 +2192,8 @@
             "1EBFA0A"
         ],
         "merrickItemAddress": "7CE90",
-        "vanillaItem": "Recovery Ring"
+        "vanillaItem": "Recovery Ring",
+        "eventCode": 1438
     },
     {
         "id": 260,
@@ -2199,7 +2205,8 @@
             "1EBF9A6"
         ],
         "merrickItemAddress": "7CE94",
-        "vanillaItem": "Life Vessel"
+        "vanillaItem": "Life Vessel",
+        "eventCode": 1439
     },
     {
         "id": 261,
@@ -2208,7 +2215,8 @@
         "address": "1EBF742",
         "spriteAddress": "1EBF9BA",
         "merrickItemAddress": "7CE98",
-        "vanillaItem": "Spirit Wand"
+        "vanillaItem": "Spirit Wand",
+        "eventCode": 1440
     },
     {
         "id": 262,
