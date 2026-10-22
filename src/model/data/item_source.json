@@ -263,7 +263,8 @@
             "3F8B96",
             "584D6CA"
         ],
-        "vanillaItem": "Magic Elixyr"
+        "vanillaItem": "Magic Elixyr",
+        "eventCode": 1750
     },
     {
         "id": 34,
@@ -295,7 +296,8 @@
             "3F8BAA",
             "584D6B6"
         ],
-        "vanillaItem": "Strength Elixyr"
+        "vanillaItem": "Strength Elixyr",
+        "eventCode": 1751
     },
     {
         "id": 37,
