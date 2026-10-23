@@ -13,7 +13,8 @@
         "nodeId": "inoa_jess_chest",
         "address": "3AEAB91",
         "spriteAddress": "3AEAD72",
-        "vanillaItem": "Jess's Letter"
+        "vanillaItem": "Jess's Letter",
+        "eventCode": 70
     },
     {
         "id": 3,
@@ -21,7 +22,8 @@
         "nodeId": "inoa_jess_chest",
         "address": "3AEABD2",
         "spriteAddress": "3AEAD86",
-        "vanillaItem": "Broken Armor"
+        "vanillaItem": "Broken Armor",
+        "eventCode": 70
     },
     {
         "id": 4,
@@ -2078,7 +2080,8 @@
             "5480C6",
             "5F3D0D2"
         ],
-        "vanillaItem": "Aqua Cape"
+        "vanillaItem": "Aqua Cape",
+        "eventCode": 1296
     },
     {
         "id": 249,
