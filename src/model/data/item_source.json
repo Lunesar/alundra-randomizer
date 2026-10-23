@@ -1154,7 +1154,8 @@
         "nodeId": "fairy_pond",
         "address": "246A506",
         "vanillaItem": "Herbs",
-        "eventCode": 959
+        "eventCode": 959,
+        "forbidPreciousItems": true
     },
     {
         "id": 140,
@@ -1162,7 +1163,8 @@
         "nodeId": "fairy_pond",
         "address": "246A4DE",
         "vanillaItem": "Life Vessel",
-        "eventCode": 957
+        "eventCode": 957,
+        "forbidPreciousItems": true
     },
     {
         "id": 141,
@@ -1170,7 +1172,8 @@
         "nodeId": "fairy_pond",
         "address": "242F4F6",
         "vanillaItem": "Herbs",
-        "eventCode": 950
+        "eventCode": 950,
+        "forbidPreciousItems": true
     },
     {
         "id": 142,
@@ -1178,7 +1181,8 @@
         "nodeId": "fairy_pond",
         "address": "246A362",
         "vanillaItem": "Herbs",
-        "eventCode": 954
+        "eventCode": 954,
+        "forbidPreciousItems": true
     },
     {
         "id": 143,
@@ -1186,7 +1190,8 @@
         "nodeId": "fairy_pond",
         "address": "246A376",
         "vanillaItem": "Herbs",
-        "eventCode": 955
+        "eventCode": 955,
+        "forbidPreciousItems": true
     },
     {
         "id": 144,
@@ -1194,14 +1199,16 @@
         "nodeId": "fairy_pond",
         "address": "246A38A",
         "vanillaItem": "Herbs",
-        "eventCode": 956
+        "eventCode": 956,
+        "forbidPreciousItems": true
     },
     {
         "id": 145,
         "name": "Fairy Pond: Reward chest",
         "nodeId": "fairy_pond",
         "address": "24A57C6",
-        "vanillaItem": "Fiend Blade"
+        "vanillaItem": "Fiend Blade",
+        "forbidPreciousItems": true
     },
     {
         "id": 146,
