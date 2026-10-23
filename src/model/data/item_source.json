@@ -2121,7 +2121,8 @@
         "nodeId": "nava_keep",
         "address": "5D73782",
         "spriteAddress": "5D73962",
-        "vanillaItem": "Diamond Crest"
+        "vanillaItem": "Diamond Crest",
+        "eventCode": 976
     },
     {
         "id": 254,
