@@ -28,6 +28,8 @@ struct RemoteContents
     std::string player;
     std::string item;
     RemoteClassification classification = RemoteClassification::Filler;
+    /// Gilder this shelf charges. Unset leaves the price word already in the disc.
+    std::optional<uint16_t> price;
 };
 
 class ItemSource

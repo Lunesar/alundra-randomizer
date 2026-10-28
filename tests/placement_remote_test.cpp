@@ -5,6 +5,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -558,6 +559,54 @@ namespace
         const placement_seed_map::Contents bare = placement_seed_map::read(bare_path);
         check(!bare.placements.at(1).remote, "A bare integer map was treated as remote");
         check(bare.placements.at(1).item_id == 36, "Bare Alundra format item id changed");
+
+        const auto price_path = dir / "price.json";
+        auto price_document = [](const Json& price) {
+            return Json::object({
+                { "format", 2 },
+                { "placements", Json::object({
+                    { "273", Json::object({
+                        { "player", "Dee" },
+                        { "item", "Map" },
+                        { "classification", "filler" },
+                        { "price", price }
+                    }) }
+                }) }
+            });
+        };
+        write_json(price_path, price_document(0));
+        const placement_seed_map::Contents free = placement_seed_map::read(price_path);
+        check(free.placements.at(273).remote_item.price.has_value()
+              && *free.placements.at(273).remote_item.price == 0,
+              "A shop price of 0 was not read");
+        write_json(price_path, price_document(9999));
+        const placement_seed_map::Contents capped = placement_seed_map::read(price_path);
+        check(capped.placements.at(273).remote_item.price.has_value()
+              && *capped.placements.at(273).remote_item.price == 9999,
+              "A shop price of 9999 was not read");
+        write_json(price_path, price_document(10000));
+        check(error_of([&] { placement_seed_map::read(price_path); }).find("0 to 9999") != std::string::npos,
+              "A shop price above 9999 was accepted");
+        write_json(price_path, price_document(-1));
+        check(error_of([&] { placement_seed_map::read(price_path); }).find("0 to 9999") != std::string::npos,
+              "A negative shop price was accepted");
+        write_json(price_path, price_document("100"));
+        check(error_of([&] { placement_seed_map::read(price_path); }).find("integer") != std::string::npos,
+              "A string shop price was accepted");
+        write_json(price_path, Json::object({
+            { "format", 2 },
+            { "placements", Json::object({
+                { "273", Json::object({
+                    { "player", "Dee" },
+                    { "item", "Map" },
+                    { "classification", "filler" },
+                    { "price", 100 },
+                    { "cost", 100 }
+                }) }
+            }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(price_path); }).find("Unknown key") != std::string::npos,
+              "An unknown remote key was accepted");
     }
 
     void test_alundra_format(const std::filesystem::path& dir, const GameData& game_data, RandomizerWorld& world)
@@ -793,6 +842,101 @@ namespace
         run_shop_receive(exe, load, shop_stub, herbs_id, reached_retail);
         check(reached_retail, "Alundra shop item no longer uses the retail receive check");
     }
+
+    Json load_json(const std::filesystem::path& path)
+    {
+        std::ifstream input(path);
+        check(static_cast<bool>(input), "Could not open " + path.string());
+        std::stringstream buffer;
+        buffer << input.rdbuf();
+        return Json::parse(buffer.str(), nullptr, true, true);
+    }
+
+    void expect_price(const BinaryFile& datas, const ItemSource* shop, uint16_t price, const std::string& message)
+    {
+        check(!shop->price_addresses().empty(), message + " has no price address");
+        for(uint32_t address : shop->price_addresses())
+            check(datas.get_word_le(address) == price, message);
+    }
+
+    void test_remote_shop_price(const std::filesystem::path& dir, const GameData& game_data, RandomizerWorld& world)
+    {
+        Json json = load_json(PLACEMENT_MULTIWORLD_FORMAT_FIXTURE);
+        json["placements"]["273"] = Json::object({
+            { "player", "Primus" },
+            { "item", "Boss Key" },
+            { "classification", "progression" },
+            { "price", 100 }
+        });
+        json["placements"]["266"] = Json::object({
+            { "player", "Secondus" },
+            { "item", "Hookshot" },
+            { "classification", "useful" },
+            { "price", 250 }
+        });
+        json["placements"]["267"] = Json::object({
+            { "player", "Quartus" },
+            { "item", "Rupee" },
+            { "classification", "filler" },
+            { "price", 100 }
+        });
+
+        const auto path = dir / "shop_prices.json";
+        write_json(path, json);
+        const placement_seed_map::Contents placement = placement_seed_map::read(path);
+        check(placement.placements.at(273).remote_item.price.has_value()
+              && *placement.placements.at(273).remote_item.price == 100,
+              "Naomi price was not read");
+        check(placement.placements.at(266).remote_item.price.has_value()
+              && *placement.placements.at(266).remote_item.price == 250,
+              "Lurvy unique price was not read");
+        check(!placement.placements.at(262).remote_item.price.has_value(),
+              "A remote shelf without a price invented one");
+        check(placement.placements.at(1).remote && !placement.placements.at(1).remote_item.price.has_value(),
+              "A chest price was invented");
+
+        placement_seed_map::apply(world, game_data, placement.placements);
+
+        ItemSource* naomi = source_by_id(world, 273);
+        ItemSource* lurvy_unique = source_by_id(world, 266);
+        ItemSource* lurvy_replacement = source_by_id(world, 267);
+        ItemSource* lurvy_restock = source_by_id(world, 262);
+        ItemSource* naomi_herbs = source_by_id(world, 270);
+        check(naomi->is_remote() && naomi->remote()->price.has_value() && *naomi->remote()->price == 100,
+              "Naomi price was not applied");
+        check(lurvy_unique->remote()->classification == RemoteClassification::Useful,
+              "Lurvy unique classification changed");
+        check(!lurvy_restock->remote()->price.has_value(), "Restocking shelf gained a price");
+        check(!naomi_herbs->is_remote() && naomi_herbs->item() != nullptr, "Naomi herbs became remote");
+
+        BinaryFile datas(std::vector<uint8_t>(datas_limit(world), 0));
+        plant_shop_price(datas, lurvy_restock);
+        for(const ItemSource* shop : { naomi, lurvy_unique, lurvy_replacement })
+        {
+            for(uint32_t address : shop->price_addresses())
+                datas.set_word_le(address, SHOP_PRICE);
+        }
+
+        PatchApplyItemSources patch;
+        patch.alter_datas_file(datas, game_data, world);
+
+        expect_price(datas, naomi, 100, "Naomi remote price was not written");
+        expect_price(datas, lurvy_unique, 250, "Lurvy unique remote price was not written");
+        expect_price(datas, lurvy_replacement, 100, "Lurvy replacement remote price was not written");
+        expect_price(datas, lurvy_restock, SHOP_PRICE, "Remote shelf without a price changed the disc price");
+        expect_price(datas, naomi_herbs, game_data.item("Herbs")->gold_value(),
+                     "Alundra shop price is not the item gold value");
+
+        json["placements"]["1"]["price"] = 100;
+        const auto chest_price_path = dir / "chest_price.json";
+        write_json(chest_price_path, json);
+        const placement_seed_map::Contents chest_price = placement_seed_map::read(chest_price_path);
+        RandomizerWorld reject_world(game_data);
+        const std::string rejected = error_of([&] {
+            placement_seed_map::apply(reject_world, game_data, chest_price.placements);
+        });
+        check(rejected.find("shop price") != std::string::npos, "A price on a chest was accepted");
+    }
 }
 
 int main()
@@ -812,6 +956,9 @@ int main()
 
         RandomizerWorld multiworld_world(game_data);
         test_multiworld_format(dir, game_data, multiworld_world);
+
+        RandomizerWorld shop_price_world(game_data);
+        test_remote_shop_price(dir, game_data, shop_price_world);
 
         std::filesystem::remove_all(dir);
         std::cout << "placement_remote_test passed\n";

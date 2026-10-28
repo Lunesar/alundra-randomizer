@@ -21,8 +21,8 @@ public:
     }
 
 private:
-    // The item-id patch runs first and writes an Alundra item's gold into the
-    // shop words. A remote item leaves the shop's own price in place.
+    // The item-id patch runs first and writes the price, an Alundra item's gilder,
+    // or a remote item's placement price. This text reads that.
     static std::string item_price(const BinaryFile& data, const ItemSource* source)
     {
         return std::to_string(data.get_word_le(source->price_addresses().front()));

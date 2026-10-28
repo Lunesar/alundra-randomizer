@@ -91,6 +91,37 @@ namespace
                                   + " must be progression, useful, filler, or trap.");
     }
 
+    std::optional<uint16_t> read_remote_price(const Json& value, const std::string& location_key)
+    {
+        if(!value.contains("price"))
+            return std::nullopt;
+
+        const Json& price = value.at("price");
+        if(!price.is_number_integer())
+        {
+            throw RandomizerException("Remote shop price for location " + location_key
+                                      + " must be an integer.");
+        }
+
+        int64_t amount = 0;
+        try
+        {
+            amount = price.get<int64_t>();
+        }
+        catch(const Json::exception&)
+        {
+            amount = -1;
+        }
+
+        if(amount < 0 || amount > 9999)
+        {
+            throw RandomizerException("Remote shop price for location " + location_key
+                                      + " must be from 0 to 9999 gilder.");
+        }
+
+        return static_cast<uint16_t>(amount);
+    }
+
     RemoteContents read_remote_object(const Json& value, const std::string& location_key)
     {
         if(!value.is_object())
@@ -101,7 +132,7 @@ namespace
 
         for(auto& [key, _] : value.items())
         {
-            if(key == "player" || key == "item" || key == "classification")
+            if(key == "player" || key == "item" || key == "classification" || key == "price")
                 continue;
             throw RandomizerException("Unknown key '" + key + "' in remote item for location " + location_key + ".");
         }
@@ -120,6 +151,7 @@ namespace
         require_remote_text(remote.player, "player", placement_seed_map::REMOTE_PLAYER_NAME_MAX, location_key);
         require_remote_text(remote.item, "item", placement_seed_map::REMOTE_ITEM_NAME_MAX, location_key);
         remote.classification = read_classification(value.at("classification").get<std::string>(), location_key);
+        remote.price = read_remote_price(value, location_key);
         return remote;
     }
 
@@ -401,6 +433,11 @@ void placement_seed_map::apply(RandomizerWorld& world, const GameData& game_data
 
         if(placement.remote)
         {
+            if(placement.remote_item.price.has_value() && found->second->price_addresses().empty())
+            {
+                throw RandomizerException("Location " + std::to_string(location_id) + " ("
+                                          + found->second->name() + ") has a shop price and is not a shop.");
+            }
             found->second->remote(placement.remote_item);
             continue;
         }

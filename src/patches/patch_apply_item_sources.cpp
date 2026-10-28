@@ -459,18 +459,32 @@ void PatchApplyItemSources::alter_datas_file(BinaryFile& data, const GameData&, 
             data.set_byte(addr, item_sprite_id);
         }
 
-        // A shop's price words are the disc's own price. A remote item has no
-        // gold value, so those words stay. An Alundra item still writes its gold.
-        if(!source->price_addresses().empty() && !remote)
+        // Shop price words are what the shelf charges. The shop text patch
+        // reads them later. An Alundra item writes its gold value. A remote
+        // item writes the placement file's price when the object has one,
+        // and otherwise leaves the disc's word.
+        if(!source->price_addresses().empty())
         {
-            if(source->item() == nullptr)
+            std::optional<uint16_t> price;
+            if(remote)
+            {
+                price = source->remote()->price;
+            }
+            else if(source->item() == nullptr)
             {
                 throw RandomizerException("Item source '" + source->name()
                                           + "' has a shop price and no item.");
             }
+            else
+            {
+                price = source->item()->gold_value();
+            }
 
-            for(uint32_t addr : source->price_addresses())
-                data.set_word_le(addr, source->item()->gold_value());
+            if(price.has_value())
+            {
+                for(uint32_t addr : source->price_addresses())
+                    data.set_word_le(addr, *price);
+            }
         }
 
         if(!remote)

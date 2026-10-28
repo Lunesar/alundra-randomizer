@@ -47,14 +47,18 @@ class RandomizerWorld;
  *   "placements": {
  *     "1": { "player": "Primus", "item": "Progressive Sword", "classification": "progression" },
  *     "5": 83,
- *     "262": { "player": "Secondus", "item": "Hookshot", "classification": "useful" }
+ *     "262": { "player": "Secondus", "item": "Hookshot", "classification": "useful" },
+ *     "273": { "player": "Quartus", "item": "Boss Key", "classification": "progression", "price": 100 }
  *   }
  * }
  *
- * A remote object has exactly these keys:
+ * A remote object has these keys:
  * - "player": the sending player's name, 1..16 printable ASCII characters, no '\\'
  * - "item": that player's item name, 1..28 printable ASCII characters, no '\\'
  * - "classification": "progression", "useful", "filler", or "trap"
+ * - "price": optional integer, 0..9999 gilder. The patch writes that word on a
+ *   source that has a price address. Omit it and the shelf keeps the price
+ *   already in the disc. A price on a source with no price address is rejected.
  *
  * The disc shows "player - item" on pickup (47 characters at most). classification
  * is stored and otherwise ignored. "trap" does not change the game. There is no
@@ -71,8 +75,9 @@ class RandomizerWorld;
  * format. The disc keeps a single reserved item id for every remote check and
  * looks the name up from the chest's collected flag. "AP Item" is only what the
  * chest popup says when that flag is missing (a shop, a scripted gift, or the
- * chest whose flag is 0). Shops and NPC lines still use the specific name, and
- * a shop keeps the price already in the disc. A remote item has no gold value.
+ * chest whose flag is 0). Shops and NPC lines still use the specific name.
+ * A remote item has no gold value. Its shop price is the "price" field when
+ * that field is present, and otherwise the price already in the disc.
  * See tests/fixtures/placement_multiworld_format.json.
  */
 namespace placement_seed_map
