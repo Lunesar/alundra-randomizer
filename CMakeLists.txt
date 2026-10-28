@@ -111,6 +111,8 @@ set(SOURCES
         "src/patches/game_patch.hpp"
         "src/patches/patches.hpp"
         "src/patches/patches.cpp"
+        "src/patches/slot_block.hpp"
+        "src/patches/slot_block.cpp"
 
         # --- Tools ----------------------------------------
         "src/tools/argument_dictionary.hpp"

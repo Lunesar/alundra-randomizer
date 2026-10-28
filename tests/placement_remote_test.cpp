@@ -16,6 +16,7 @@
 #include "../src/model/item_source.hpp"
 #include "../src/model/randomizer_world.hpp"
 #include "../src/patches/patch_apply_item_sources.hpp"
+#include "../src/patches/slot_block.hpp"
 #include "../src/randomizer_options.hpp"
 #include "../src/tools/binary_file.hpp"
 #include "../src/tools/exception.hpp"
@@ -691,6 +692,81 @@ namespace
               "An unknown slot key was accepted");
     }
 
+    std::string read_cfield(const PsxExeFile& exe, uint32_t offset, std::size_t width)
+    {
+        std::string text;
+        for(std::size_t index = 0; index < width; ++index)
+        {
+            const uint8_t byte = exe.get_byte(offset + static_cast<uint32_t>(index));
+            if(byte == 0)
+                return text;
+            text.push_back(static_cast<char>(byte));
+        }
+        throw std::runtime_error("Slot field was not NUL-terminated");
+    }
+
+    void test_slot_block(const std::filesystem::path& dir)
+    {
+        const auto missing = slot_block::identity_for("", "", 1);
+        check(!missing.has_value(), "A placement file without a slot invented one");
+        check(error_of([&] { slot_block::identity_for("0.1.5", "", 1); }).find("both") != std::string::npos,
+              "A player-less apworld version was accepted");
+        check(error_of([&] { slot_block::identity_for("", "YourName", 1); }).find("both") != std::string::npos,
+              "A version-less player was accepted");
+
+        const auto identity = slot_block::identity_for("0.1.5", "N\u00E9stor\\Room", 7);
+        check(identity.has_value(), "A complete slot was dropped");
+
+        BinaryFile bytes(std::vector<uint8_t>(EXE_SIZE, 0));
+        bytes.set_long_le(0x18, slot_block::USA_LOAD);
+        const auto exe_path = dir / "slot_block.exe";
+        bytes.save_as(exe_path);
+
+        PsxExeFile exe(exe_path);
+        slot_block::write(exe, *identity);
+        MipsCode later;
+        later.add_byte(0xAB);
+        const uint32_t later_address = exe.inject_code(later);
+        check(later_address < slot_block::SLOT_BLOCK_ADDRESS, "A later injection moved onto the slot block");
+        exe.save_as(exe_path);
+
+        const uint32_t new_load = exe.get_long_le(0x18);
+        check(new_load < slot_block::SLOT_BLOCK_ADDRESS, "The load address did not drop below the slot block");
+        const uint32_t file_offset = 0x800 + (slot_block::SLOT_BLOCK_ADDRESS - new_load);
+        check(exe.get_byte(file_offset) == 'A' && exe.get_byte(file_offset + 1) == 'L'
+              && exe.get_byte(file_offset + 2) == 'A' && exe.get_byte(file_offset + 3) == 'P',
+              "Slot block magic changed");
+        check(exe.get_word_le(file_offset + 0x04) == slot_block::BLOCK_VERSION, "Slot block version changed");
+        check(exe.get_word_le(file_offset + 0x06) == 0, "Slot block reserved word changed");
+        check(exe.get_long_le(file_offset + 0x08) == 7, "Slot block seed changed");
+        check(read_cfield(exe, file_offset + 0x0C, slot_block::VERSION_FIELD) == RELEASE,
+              "Slot block randomizer version changed");
+        check(read_cfield(exe, file_offset + 0x1C, slot_block::VERSION_FIELD) == "0.1.5",
+              "Slot block apworld version changed");
+        check(read_cfield(exe, file_offset + 0x2C, slot_block::PLAYER_FIELD) == "N\u00E9stor\\Room",
+              "Slot block player changed");
+
+        BinaryFile early_bytes(std::vector<uint8_t>(EXE_SIZE, 0));
+        early_bytes.set_long_le(0x18, slot_block::USA_LOAD);
+        const auto early_path = dir / "slot_block_late.exe";
+        early_bytes.save_as(early_path);
+        PsxExeFile early(early_path);
+        MipsCode first;
+        first.add_byte(0x00);
+        early.inject_code(first);
+        check(error_of([&] { slot_block::write(early, *identity); }).find("first code") != std::string::npos,
+              "A slot block injected second was accepted");
+
+        BinaryFile long_bytes(std::vector<uint8_t>(EXE_SIZE, 0));
+        long_bytes.set_long_le(0x18, slot_block::USA_LOAD);
+        const auto long_path = dir / "slot_block_long.exe";
+        long_bytes.save_as(long_path);
+        PsxExeFile long_name(long_path);
+        slot_block::Identity too_long{"0.1.5", std::string(slot_block::PLAYER_FIELD, 'A'), 1};
+        check(error_of([&] { slot_block::write(long_name, too_long); }).find("does not fit") != std::string::npos,
+              "A player that fills the field including its NUL was accepted");
+    }
+
     void test_alundra_format(const std::filesystem::path& dir, const GameData& game_data, RandomizerWorld& world)
     {
         const uint8_t herbs_id = game_data.item("Herbs")->id();
@@ -1035,6 +1111,7 @@ int main()
         RandomizerWorld rejection_world(game_data);
         test_rejections(dir, game_data, rejection_world);
         test_slot_identity(dir);
+        test_slot_block(dir);
 
         RandomizerWorld alundra_world(game_data);
         test_alundra_format(dir, game_data, alundra_world);

@@ -38,6 +38,7 @@
 #include "tools/psx_exe_file.hpp"
 #include "tools/sha1.hpp"
 #include "patches/patches.hpp"
+#include "patches/slot_block.hpp"
 
 namespace
 {
@@ -646,7 +647,8 @@ Json randomize(RandomizerWorld& world, GameData& game_data, RandomizerOptions& o
 
 void build_patched_rom(const std::filesystem::path& input_path, const std::filesystem::path& output_path, 
                        GameData& game_data, RandomizerWorld& world, const RandomizerOptions& options,
-                       const std::filesystem::path& tool_log_path)
+                       const std::filesystem::path& tool_log_path,
+                       const slot_block::Identity* slot)
 {
 #ifdef DEBUG
     std::filesystem::remove_all("./tmp_dump/");
@@ -666,7 +668,7 @@ void build_patched_rom(const std::filesystem::path& input_path, const std::files
     BinaryFile datas_file("./tmp_dump/DATA/DATAS.BIN");
     PsxExeFile exe_file("./tmp_dump/ALUN_CD.EXE");
 
-    apply_randomizer_patches(datas_file, exe_file, game_data, world, options);
+    apply_randomizer_patches(datas_file, exe_file, game_data, world, options, slot);
 
     datas_file.save();
     exe_file.save();
@@ -779,9 +781,23 @@ void generate(const ArgumentDictionary& args)
         if(mode == RandomizerRunMode::ApplyPlacement && placement.permalink.empty())
             spoiler_json.erase("permalink");
 
+        const slot_block::Identity* slot = nullptr;
+        std::optional<slot_block::Identity> slot_identity;
+        if(patch_rom && mode == RandomizerRunMode::ApplyPlacement)
+        {
+            slot_identity = slot_block::identity_for(
+                placement.apworld_version, placement.player, options.seed());
+            if(slot_identity.has_value())
+            {
+                slot = &*slot_identity;
+                std::cout << "Embedding slot \"" << slot->player << "\" from apworld "
+                          << slot->apworld_version << ".\n";
+            }
+        }
+
         if(patch_rom)
             build_patched_rom(input_rom_path, output_rom_path, game_data, world, options,
-                              resolve_tool_log_path(args));
+                              resolve_tool_log_path(args), slot);
 
         write_output_log(spoiler_log_path, spoiler_json, options.allow_spoiler_log());
     }

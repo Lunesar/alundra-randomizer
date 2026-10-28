@@ -1,6 +1,7 @@
 #include "patches.hpp"
 
 #include "../randomizer_options.hpp"
+#include "slot_block.hpp"
 
 #include "patch_new_game.hpp"
 #include "patch_fix_map_inconsistencies.hpp"
@@ -39,7 +40,8 @@ void execute_patches(const std::vector<std::unique_ptr<GamePatch>>& patches,
 
 void apply_randomizer_patches(BinaryFile& data, PsxExeFile& exe, 
                               GameData& game_data, RandomizerWorld& world,
-                              const RandomizerOptions& options)
+                              const RandomizerOptions& options,
+                              const slot_block::Identity* slot)
 {
     std::vector<std::unique_ptr<GamePatch>> patches;
 
@@ -72,6 +74,10 @@ void apply_randomizer_patches(BinaryFile& data, PsxExeFile& exe,
         patches.emplace_back(std::make_unique<PatchProgressiveItems>(!options.split_boots_effects()));
     if(options.original_game_balance())
         patches.emplace_back(std::make_unique<PatchOriginalGameBalance>());
+
+    // First injection. Later patches land below this address and leave it put.
+    if(slot != nullptr)
+        slot_block::write(exe, *slot);
 
     execute_patches(patches, data, exe, game_data, world);
 }
