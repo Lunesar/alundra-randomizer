@@ -38,6 +38,8 @@ class RandomizerWorld;
  * another game:
  * {
  *   "format": 2,
+ *   "apworldVersion": "0.1.5",   // optional; major.minor.patch of the world that wrote the file
+ *   "player": "YourName",        // optional; this slot's login name, not a remote disc line
  *   "seed": 1,
  *   "gameSettings": { ... },
  *   "randomizerSettings": {
@@ -59,6 +61,14 @@ class RandomizerWorld;
  * - "price": optional integer, 0..9999 gilder. The patch writes that word on a
  *   source that has a price address. Omit it and the shelf keeps the price
  *   already in the disc. A price on a source with no price address is rejected.
+ *
+ * The top-level "player" is this slot's login name. It is not shortened to 16
+ * characters and it may contain characters the disc line refuses. The top-level
+ * "apworldVersion" is the world that wrote the file. Both are optional on read,
+ * so an older file still patches, and both are rejected on the Alundra format.
+ * When present, apworldVersion is major.minor.patch and player is a non-empty
+ * string with no ASCII control characters. seed stays the unsigned 32-bit
+ * randomizer seed. The reader keeps apworldVersion and player on Contents.
  *
  * The disc shows "player - item" on pickup (47 characters at most). classification
  * is stored and otherwise ignored. "trap" does not change the game. There is no
@@ -103,6 +113,9 @@ namespace placement_seed_map
         std::string permalink;
         Json options_json = Json::object();
         bool has_options = false;
+        // Empty when the Multiworld file omits them. The Alundra format leaves both empty.
+        std::string apworld_version;
+        std::string player;
         std::map<uint16_t, Placement> placements;
     };
 

@@ -1,5 +1,7 @@
 {
   "format": 2,
+  "apworldVersion": "0.1.5",
+  "player": "YourName",
   "seed": 1,
   "gameSettings": {
     "progressiveItems": false

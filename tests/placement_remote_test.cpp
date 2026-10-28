@@ -609,6 +609,88 @@ namespace
               "An unknown remote key was accepted");
     }
 
+    void test_slot_identity(const std::filesystem::path& dir)
+    {
+        const auto path = dir / "slot.json";
+        const Json remote = Json::object({
+            { "player", "Primus" },
+            { "item", "Sword" },
+            { "classification", "filler" }
+        });
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "apworldVersion", "0.1.5" },
+            { "player", "N\u00E9stor\\Room" },
+            { "seed", 7 },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        const placement_seed_map::Contents kept = placement_seed_map::read(path);
+        check(kept.apworld_version == "0.1.5", "apworldVersion was not kept");
+        check(kept.player == "N\u00E9stor\\Room", "Slot player was not kept");
+        check(kept.options_json.at("seed") == 7, "Slot identity displaced the seed");
+        check(kept.placements.at(1).remote_item.player == "Primus",
+              "The slot player replaced the remote disc name");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "seed", 7 },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        const placement_seed_map::Contents older = placement_seed_map::read(path);
+        check(older.apworld_version.empty() && older.player.empty(),
+              "An older Multiworld file invented a slot");
+
+        write_json(path, Json::object({
+            { "format", 1 },
+            { "apworldVersion", "0.1.5" },
+            { "player", "YourName" },
+            { "placements", Json::object({ { "1", 36 } }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("Multiworld format") != std::string::npos,
+              "The Alundra format accepted slot identity");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "apworldVersion", "0.1" },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("major.minor.patch") != std::string::npos,
+              "A short apworldVersion was accepted");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "apworldVersion", 1 },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("string") != std::string::npos,
+              "A numeric apworldVersion was accepted");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "player", "   " },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("login name") != std::string::npos,
+              "A blank slot player was accepted");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "player", "Your\nName" },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("control") != std::string::npos,
+              "A slot player with a newline was accepted");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "slot", "YourName" },
+            { "placements", Json::object({ { "1", remote } }) }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("Unknown key") != std::string::npos,
+              "An unknown slot key was accepted");
+    }
+
     void test_alundra_format(const std::filesystem::path& dir, const GameData& game_data, RandomizerWorld& world)
     {
         const uint8_t herbs_id = game_data.item("Herbs")->id();
@@ -680,6 +762,8 @@ namespace
 
         const placement_seed_map::Contents placement = placement_seed_map::read(PLACEMENT_MULTIWORLD_FORMAT_FIXTURE);
         check(placement.has_options && placement.permalink.empty(), "Multiworld format options were not kept");
+        check(placement.apworld_version == "0.1.5", "Multiworld format dropped apworldVersion");
+        check(placement.player == "YourName", "Multiworld format dropped the slot player");
         check(placement.placements.size() == world.item_sources().size(), "Multiworld format is missing a location");
 
         std::array<int, ITEM_COUNT> local_counts {};
@@ -950,6 +1034,7 @@ int main()
         GameData game_data;
         RandomizerWorld rejection_world(game_data);
         test_rejections(dir, game_data, rejection_world);
+        test_slot_identity(dir);
 
         RandomizerWorld alundra_world(game_data);
         test_alundra_format(dir, game_data, alundra_world);

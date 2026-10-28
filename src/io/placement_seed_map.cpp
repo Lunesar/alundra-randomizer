@@ -238,6 +238,71 @@ namespace
         output = json.at(key).get<std::string>();
     }
 
+    bool is_dotted_version(const std::string& text)
+    {
+        // major.minor.patch. Each component is a non-empty run of digits.
+        int dots = 0;
+        bool digits = false;
+        for(unsigned char character : text)
+        {
+            if(character == '.')
+            {
+                if(!digits)
+                    return false;
+                ++dots;
+                digits = false;
+                continue;
+            }
+            if(character < '0' || character > '9')
+                return false;
+            digits = true;
+        }
+        return dots == 2 && digits;
+    }
+
+    bool is_slot_player_name(const std::string& text)
+    {
+        // The login name. ASCII controls are refused. Other bytes, including
+        // UTF-8, stay, because the room matches the YAML name unchanged.
+        bool visible = false;
+        for(unsigned char character : text)
+        {
+            if(character < 0x20 || character == 0x7F)
+                return false;
+            if(character != ' ')
+                visible = true;
+        }
+        return visible;
+    }
+
+    void read_slot_identity(const Json& json, placement_seed_map::PlacementFormat format,
+                            placement_seed_map::Contents& contents)
+    {
+        const bool names_the_slot = json.contains("apworldVersion") || json.contains("player");
+        if(format != placement_seed_map::PlacementFormat::Multiworld)
+        {
+            if(names_the_slot)
+            {
+                throw RandomizerException(
+                    "Placement seed map \"apworldVersion\" and \"player\" belong on the Multiworld format.");
+            }
+            return;
+        }
+
+        read_optional_string(json, "apworldVersion", contents.apworld_version);
+        if(json.contains("apworldVersion") && !is_dotted_version(contents.apworld_version))
+        {
+            throw RandomizerException("Placement seed map \"apworldVersion\" must be major.minor.patch.");
+        }
+
+        read_optional_string(json, "player", contents.player);
+        if(json.contains("player") && !is_slot_player_name(contents.player))
+        {
+            throw RandomizerException(
+                "Placement seed map \"player\" must be this slot's login name, with no ASCII control characters.");
+        }
+    }
+
     std::map<uint16_t, ItemSource*> index_item_sources(const RandomizerWorld& world)
     {
         std::map<uint16_t, ItemSource*> by_location_id;
@@ -365,11 +430,15 @@ placement_seed_map::Contents placement_seed_map::read(const std::filesystem::pat
     }
 
     contents.placements = read_placements_object(json.at("placements"), format);
+    read_slot_identity(json, format, contents);
 
     for(auto& [key, _] : json.items())
     {
         if(key == "format" || key == "permalink" || key == "hashSentence" || key == "seed"
            || key == "gameSettings" || key == "randomizerSettings" || key == "placements")
+            continue;
+        if(format == placement_seed_map::PlacementFormat::Multiworld
+           && (key == "apworldVersion" || key == "player"))
             continue;
 
         throw RandomizerException("Unknown key '" + key + "' in placement seed map '" + path.string()
