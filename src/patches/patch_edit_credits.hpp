@@ -27,6 +27,17 @@ public:
         credits_exe_file.set_bytes(0xBB0, reinterpret_cast<const uint8_t*>(str_author.c_str()), str_author.size());
         credits_exe_file.set_long_le(0x10448, 0xBB0 + 0x8001F800);
 
+        // Flag 1 continues a group. Flag 0 ends it. Dinopony's flag at 0x1044C stays 0.
+        std::string str_archipelago = "Archipelago World";
+        credits_exe_file.set_bytes(0xBC0, reinterpret_cast<const uint8_t*>(str_archipelago.c_str()), str_archipelago.size());
+        credits_exe_file.set_long_le(0x10450, 0xBC0 + 0x8001F800);
+        credits_exe_file.set_long_le(0x10454, 1);
+
+        std::string str_lunesar = "Lunesar";
+        credits_exe_file.set_bytes(0xBD4, reinterpret_cast<const uint8_t*>(str_lunesar.c_str()), str_lunesar.size());
+        credits_exe_file.set_long_le(0x10458, 0xBD4 + 0x8001F800);
+        credits_exe_file.set_long_le(0x1045C, 0);
+
         credits_exe_file.save();
     }
 };
