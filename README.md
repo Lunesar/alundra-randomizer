@@ -1,10 +1,12 @@
-![version](https://img.shields.io/badge/Version-1.2.0-blue)
+![version](https://img.shields.io/badge/Version-1.3.0-blue)
 ![compile](https://github.com/Dinopony/alundra-randomizer/workflows/Compile/badge.svg)
 
 # Alundra Randomizer
 
 This project is a randomizer for the excellent action RPG Alundra, released on the first PlayStation in 1997.
 It works on a 1.1 US image of the game by randomizing item sources and altering the game to make it more enjoyable in a randomizer format.
+
+Version 1.3.0 is the Archipelago line of this fork. It is not the feature list on [Dinopony's 1.3.0 milestone](https://github.com/Dinopony/alundra-randomizer/milestone/7). Permalinks written by 1.2.0 are rejected: item counts in the permalink are 16-bit, and the logic graph has changed since that release. The version byte in a 1.3.0 permalink is 13.
 
 ## Game flow
 

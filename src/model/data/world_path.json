@@ -183,7 +183,8 @@
     },
     {
         "fromId": "overworld_d3_behind_vines",
-        "toId": "overworld_d3_behind_bricks"
+        "toId": "overworld_d3_behind_bricks",
+        "twoWay": true
     },
     {
         "fromId": "overworld_d3_behind_bricks",
@@ -207,6 +208,15 @@
     {
         "fromId": "overworld_d3_behind_spring",
         "toId": "overworld_d3"
+    },
+    {
+        "fromId": "overworld_d3_behind_spring",
+        "toId": "overworld_d4_elevated",
+        "twoWay": true
+    },
+    {
+        "fromId": "overworld_d4_elevated",
+        "toId": "overworld_d4"
     },
     {
         "fromId": "overworld_d4",

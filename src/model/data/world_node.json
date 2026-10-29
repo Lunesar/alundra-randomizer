@@ -92,6 +92,10 @@
         "hints": [],
         "graphPos": [10,-10]
     },
+    "overworld_d4_elevated": {
+        "hints": [],
+        "graphPos": [10,-6]
+    },
     "overworld_d4_behind_long_boots": {
         "hints": [],
         "graphPos": [7,-8]

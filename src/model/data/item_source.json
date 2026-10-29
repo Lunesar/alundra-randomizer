@@ -164,7 +164,7 @@
     {
         "id": 21,
         "name": "Overworld D3: Leftmost chest in 3-chest group",
-        "nodeId": "overworld_d3",
+        "nodeId": "overworld_d3_behind_spring",
         "address": "4C3B52",
         "vanillaItem": "Herbs",
         "eventCode": 1748
@@ -172,7 +172,7 @@
     {
         "id": 22,
         "name": "Overworld D3: Middle chest in 3-chest group",
-        "nodeId": "overworld_d3",
+        "nodeId": "overworld_d3_behind_spring",
         "address": "4C3B3E",
         "vanillaItem": "Herbs",
         "eventCode": 1747
@@ -180,7 +180,7 @@
     {
         "id": 23,
         "name": "Overworld D3: Rightmost chest in 3-chest group",
-        "nodeId": "overworld_d3",
+        "nodeId": "overworld_d3_behind_spring",
         "address": "4C3B66",
         "vanillaItem": "Herbs",
         "eventCode": 1749
@@ -220,7 +220,7 @@
     {
         "id": 28,
         "name": "Overworld D4: Elevated chest at top-left corner",
-        "nodeId": "overworld_d4",
+        "nodeId": "overworld_d4_elevated",
         "address": "50120A",
         "vanillaItem": "Life Vessel",
         "eventCode": 1742

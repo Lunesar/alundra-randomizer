@@ -117,6 +117,7 @@
         "name": "Overworld D4 (Reptile Lair sector)",
         "nodeIds": [
             "overworld_d4",
+            "overworld_d4_elevated",
             "overworld_d4_behind_long_boots"
         ],
         "hintName": "near Reptile Lair"
