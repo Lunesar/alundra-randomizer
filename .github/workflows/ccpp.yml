@@ -15,3 +15,62 @@ jobs:
     - name: make
       run: make
       working-directory: "."
+    - name: Pack the patcher tools
+      run: |
+        set -euo pipefail
+        tools=dist/patcher/linux/tools
+        mkdir -p "$tools"
+        strip -o "dist/patcher/linux/alundra-randomizer" alundra-randomizer
+        curl -fsSL -o mkpsxiso.zip https://github.com/Lameguy64/mkpsxiso/releases/download/v2.30/mkpsxiso-2.30-Linux.zip
+        unzip -q mkpsxiso.zip -d mkpsxiso
+        find mkpsxiso -type f -name dumpsxiso -exec cp {} "$tools/dumpsxiso" \;
+        find mkpsxiso -type f -name mkpsxiso -exec cp {} "$tools/mkpsxiso" \;
+        for name in LICENSE.md README.md; do
+          found=$(find mkpsxiso -type f -name "$name" | head -1)
+          if [ -z "$found" ]; then
+            curl -fsSL -o "$tools/$name" "https://raw.githubusercontent.com/Lameguy64/mkpsxiso/v2.30/$name"
+          else
+            cp "$found" "$tools/$name"
+          fi
+          test -s "$tools/$name"
+        done
+        chmod +x dist/patcher/linux/alundra-randomizer "$tools/dumpsxiso" "$tools/mkpsxiso"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: alundra-randomizer-linux
+        path: dist/patcher/linux/
+
+  windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Configure
+      run: cmake -S . -B build -A x64
+    - name: Build
+      run: cmake --build build --config Release --target alundra-randomizer
+    - name: Pack the patcher tools
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $tools = "dist/patcher/win32/tools"
+        New-Item -ItemType Directory -Force -Path $tools | Out-Null
+        Copy-Item "build/Release/alundra-randomizer.exe" "dist/patcher/win32/alundra-randomizer.exe"
+        Invoke-WebRequest -Uri "https://github.com/Lameguy64/mkpsxiso/releases/download/v2.30/mkpsxiso-2.30-win64.zip" -OutFile "mkpsxiso.zip"
+        Expand-Archive "mkpsxiso.zip" -DestinationPath "mkpsxiso"
+        Copy-Item (Get-ChildItem -Recurse -Filter "dumpsxiso.exe" "mkpsxiso").FullName "$tools/dumpsxiso.exe"
+        Copy-Item (Get-ChildItem -Recurse -Filter "mkpsxiso.exe" "mkpsxiso").FullName "$tools/mkpsxiso.exe"
+        foreach ($name in @("LICENSE.md", "README.md")) {
+          $found = Get-ChildItem -Recurse -Filter $name "mkpsxiso" | Select-Object -First 1
+          if ($found) {
+            Copy-Item $found.FullName "$tools/$name"
+          } else {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Lameguy64/mkpsxiso/v2.30/$name" -OutFile "$tools/$name"
+          }
+          if (-not (Test-Path "$tools/$name") -or (Get-Item "$tools/$name").Length -eq 0) {
+            throw "mkpsxiso $name was not saved"
+          }
+        }
+    - uses: actions/upload-artifact@v4
+      with:
+        name: alundra-randomizer-win64
+        path: dist/patcher/win32/
