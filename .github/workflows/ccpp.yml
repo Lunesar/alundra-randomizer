@@ -35,10 +35,48 @@ jobs:
           test -s "$tools/$name"
         done
         chmod +x dist/patcher/linux/alundra-randomizer "$tools/dumpsxiso" "$tools/mkpsxiso"
+    - name: Pack the randomizer package
+      run: |
+        set -euo pipefail
+        src=dist/patcher/linux
+        pkg=dist/player/linux
+        dest=$pkg/alundra-randomizer
+        rm -rf "$pkg"
+        mkdir -p "$pkg"
+        cp -a "$src" "$dest"
+        cp -a release_package/presets "$dest/presets"
+        cp -a release_package/personal_settings.json "$dest/personal_settings.json"
+        mkdir -p "$dest/seeds"
+        # upload-artifact skips empty directories. .gitkeep keeps seeds/ in the download.
+        : > "$dest/seeds/.gitkeep"
+        test -x "$dest/alundra-randomizer"
+        test -x "$dest/tools/dumpsxiso"
+        test -x "$dest/tools/mkpsxiso"
+        test -s "$dest/presets/default.json"
+        test -s "$dest/personal_settings.json"
+        test ! -e "$dest/gen_preset.bat"
+        test ! -e "$dest/gen_permalink.bat"
+        test ! -e "$src/presets"
+        test ! -e "$src/seeds"
+        test ! -e "$src/personal_settings.json"
+        test ! -e "$src/gen_preset.bat"
+        test ! -e "$src/gen_permalink.bat"
+        mapfile -t seed_files < <(find "$dest/seeds" -type f ! -name '.gitkeep' -print)
+        if [ ${#seed_files[@]} -ne 0 ]; then
+          echo "player seeds/ must stay empty" >&2
+          printf '%s\n' "${seed_files[@]}" >&2
+          exit 1
+        fi
+    - uses: actions/upload-artifact@v4
+      with:
+        name: alundra-aptools-linux
+        path: dist/patcher/linux/
     - uses: actions/upload-artifact@v4
       with:
         name: alundra-randomizer-linux
-        path: dist/patcher/linux/
+        path: dist/player/linux/
+        include-hidden-files: true
+        if-no-files-found: error
 
   windows:
     runs-on: windows-latest
@@ -70,7 +108,58 @@ jobs:
             throw "mkpsxiso $name was not saved"
           }
         }
+    - name: Pack the randomizer package
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $src = "dist/patcher/win32"
+        $pkg = "dist/player/win64"
+        $dest = "$pkg/alundra-randomizer"
+        if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
+        New-Item -ItemType Directory -Force -Path $pkg | Out-Null
+        Copy-Item -Path $src -Destination $dest -Recurse
+        Copy-Item -Path "release_package/presets" -Destination $dest -Recurse
+        Copy-Item -Path "release_package/personal_settings.json" -Destination $dest
+        Copy-Item -Path "release_package/gen_preset.bat","release_package/gen_permalink.bat" -Destination $dest
+        New-Item -ItemType Directory -Force -Path "$dest/seeds" | Out-Null
+        # upload-artifact skips empty directories. .gitkeep keeps seeds/ in the download.
+        New-Item -ItemType File -Force -Path "$dest/seeds/.gitkeep" | Out-Null
+        foreach ($rel in @(
+          "alundra-randomizer.exe",
+          "tools/dumpsxiso.exe",
+          "tools/mkpsxiso.exe",
+          "presets/default.json",
+          "personal_settings.json",
+          "gen_preset.bat",
+          "gen_permalink.bat",
+          "seeds/.gitkeep"
+        )) {
+          if (-not (Test-Path "$dest/$rel")) {
+            throw "player package is missing $rel"
+          }
+        }
+        foreach ($bat in @("gen_preset.bat", "gen_permalink.bat")) {
+          $text = Get-Content -Raw "$dest/$bat"
+          if ($text -notmatch '%~dp0' -or $text -notmatch 'alundra-randomizer\.exe') {
+            throw "$bat must run alundra-randomizer.exe from its own directory"
+          }
+        }
+        foreach ($rel in @("presets", "seeds", "personal_settings.json", "gen_preset.bat", "gen_permalink.bat")) {
+          if (Test-Path "$src/$rel") {
+            throw "patcher folder was changed: $rel"
+          }
+        }
+        $extras = @(Get-ChildItem -Force -Recurse -File "$dest/seeds" | Where-Object { $_.Name -ne ".gitkeep" })
+        if ($extras.Count -ne 0) {
+          throw "player seeds/ must stay empty"
+        }
+    - uses: actions/upload-artifact@v4
+      with:
+        name: alundra-aptools-win64
+        path: dist/patcher/win32/
     - uses: actions/upload-artifact@v4
       with:
         name: alundra-randomizer-win64
-        path: dist/patcher/win32/
+        path: dist/player/win64/
+        include-hidden-files: true
+        if-no-files-found: error
