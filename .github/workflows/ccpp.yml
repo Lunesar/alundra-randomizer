@@ -66,14 +66,37 @@ jobs:
           printf '%s\n' "${seed_files[@]}" >&2
           exit 1
         fi
+        # upload-artifact's own zip stores files only, so an empty seeds/ would disappear.
+        python3 - "$dest" dist/alundra-randomizer-linux.zip << 'PY'
+        import os, sys, zipfile
+        src, out = sys.argv[1], sys.argv[2]
+        parent = os.path.dirname(os.path.abspath(src))
+        with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for dirpath, dirnames, filenames in os.walk(src):
+                rel = os.path.relpath(dirpath, parent)
+                zf.write(dirpath, rel)
+                for name in filenames:
+                    path = os.path.join(dirpath, name)
+                    zf.write(path, os.path.join(rel, name))
+        with zipfile.ZipFile(out) as zf:
+            names = zf.namelist()
+        seed = "alundra-randomizer/seeds/"
+        if seed not in names:
+            raise SystemExit("zip is missing the empty seeds directory")
+        extras = [name for name in names if name.startswith(seed) and name != seed]
+        if extras:
+            raise SystemExit("seeds directory is not empty: " + ", ".join(extras))
+        PY
     - uses: actions/upload-artifact@v4
       with:
         name: alundra-aptools-linux
         path: dist/patcher/linux/
-    - uses: actions/upload-artifact@v4
+    # archive: false uploads the zip unchanged, so the empty seeds/ entry is kept.
+    # The artifact name is the file name.
+    - uses: actions/upload-artifact@v7
       with:
-        name: alundra-randomizer-linux
-        path: dist/player/linux/
+        path: dist/alundra-randomizer-linux.zip
+        archive: false
         if-no-files-found: error
 
   windows:
@@ -149,12 +172,37 @@ jobs:
         if ($extras.Count -ne 0) {
           throw "player seeds/ must stay empty"
         }
+        # upload-artifact's own zip stores files only, so an empty seeds/ would disappear.
+        $zipScript = @'
+        import os, sys, zipfile
+        src, out = sys.argv[1], sys.argv[2]
+        parent = os.path.dirname(os.path.abspath(src))
+        with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for dirpath, dirnames, filenames in os.walk(src):
+                rel = os.path.relpath(dirpath, parent)
+                zf.write(dirpath, rel)
+                for name in filenames:
+                    path = os.path.join(dirpath, name)
+                    zf.write(path, os.path.join(rel, name))
+        with zipfile.ZipFile(out) as zf:
+            names = zf.namelist()
+        seed = "alundra-randomizer/seeds/"
+        if seed not in names:
+            raise SystemExit("zip is missing the empty seeds directory")
+        extras = [name for name in names if name.startswith(seed) and name != seed]
+        if extras:
+            raise SystemExit("seeds directory is not empty: " + ", ".join(extras))
+        '@
+        $zipScript | python - $dest dist/alundra-randomizer-win64.zip
+        if ($LASTEXITCODE -ne 0) { throw "could not zip the randomizer package" }
     - uses: actions/upload-artifact@v4
       with:
         name: alundra-aptools-win64
         path: dist/patcher/win32/
-    - uses: actions/upload-artifact@v4
+    # archive: false uploads the zip unchanged, so the empty seeds/ entry is kept.
+    # The artifact name is the file name.
+    - uses: actions/upload-artifact@v7
       with:
-        name: alundra-randomizer-win64
-        path: dist/player/win64/
+        path: dist/alundra-randomizer-win64.zip
+        archive: false
         if-no-files-found: error
