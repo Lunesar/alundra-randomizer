@@ -47,8 +47,7 @@ jobs:
         cp -a release_package/presets "$dest/presets"
         cp -a release_package/personal_settings.json "$dest/personal_settings.json"
         mkdir -p "$dest/seeds"
-        # upload-artifact skips empty directories. .gitkeep keeps seeds/ in the download.
-        : > "$dest/seeds/.gitkeep"
+        test -d "$dest/seeds"
         test -x "$dest/alundra-randomizer"
         test -x "$dest/tools/dumpsxiso"
         test -x "$dest/tools/mkpsxiso"
@@ -61,7 +60,7 @@ jobs:
         test ! -e "$src/personal_settings.json"
         test ! -e "$src/gen_preset.bat"
         test ! -e "$src/gen_permalink.bat"
-        mapfile -t seed_files < <(find "$dest/seeds" -type f ! -name '.gitkeep' -print)
+        mapfile -t seed_files < <(find "$dest/seeds" -type f -print)
         if [ ${#seed_files[@]} -ne 0 ]; then
           echo "player seeds/ must stay empty" >&2
           printf '%s\n' "${seed_files[@]}" >&2
@@ -75,7 +74,6 @@ jobs:
       with:
         name: alundra-randomizer-linux
         path: dist/player/linux/
-        include-hidden-files: true
         if-no-files-found: error
 
   windows:
@@ -122,8 +120,6 @@ jobs:
         Copy-Item -Path "release_package/personal_settings.json" -Destination $dest
         Copy-Item -Path "release_package/gen_preset.bat","release_package/gen_permalink.bat" -Destination $dest
         New-Item -ItemType Directory -Force -Path "$dest/seeds" | Out-Null
-        # upload-artifact skips empty directories. .gitkeep keeps seeds/ in the download.
-        New-Item -ItemType File -Force -Path "$dest/seeds/.gitkeep" | Out-Null
         foreach ($rel in @(
           "alundra-randomizer.exe",
           "tools/dumpsxiso.exe",
@@ -132,7 +128,7 @@ jobs:
           "personal_settings.json",
           "gen_preset.bat",
           "gen_permalink.bat",
-          "seeds/.gitkeep"
+          "seeds"
         )) {
           if (-not (Test-Path "$dest/$rel")) {
             throw "player package is missing $rel"
@@ -149,7 +145,7 @@ jobs:
             throw "patcher folder was changed: $rel"
           }
         }
-        $extras = @(Get-ChildItem -Force -Recurse -File "$dest/seeds" | Where-Object { $_.Name -ne ".gitkeep" })
+        $extras = @(Get-ChildItem -Force -Recurse -File "$dest/seeds")
         if ($extras.Count -ne 0) {
           throw "player seeds/ must stay empty"
         }
@@ -161,5 +157,4 @@ jobs:
       with:
         name: alundra-randomizer-win64
         path: dist/player/win64/
-        include-hidden-files: true
         if-no-files-found: error
