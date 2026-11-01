@@ -5,6 +5,7 @@
 
 #include "patch_new_game.hpp"
 #include "patch_fix_map_inconsistencies.hpp"
+#include "patch_fairy_pond.hpp"
 #include "patch_apply_item_sources.hpp"
 #include "patch_original_game_balance.hpp"
 #include "patch_neutralize_map_variant_changes.hpp"
@@ -48,6 +49,7 @@ void apply_randomizer_patches(BinaryFile& data, PsxExeFile& exe,
     patches.emplace_back(std::make_unique<PatchNewGame>(options));
     patches.emplace_back(std::make_unique<PatchFixMapInconsistencies>());
     patches.emplace_back(std::make_unique<PatchFixWrongMapTransitions>());
+    patches.emplace_back(std::make_unique<PatchFairyPond>());
     patches.emplace_back(std::make_unique<PatchApplyItemSources>());
     patches.emplace_back(std::make_unique<PatchNeutralizeMapVariantChanges>());
     patches.emplace_back(std::make_unique<PatchNeutralizeFlags>());

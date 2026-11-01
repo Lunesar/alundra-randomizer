@@ -1208,6 +1208,7 @@
         "nodeId": "fairy_pond",
         "address": "24A57C6",
         "vanillaItem": "Fiend Blade",
+        "eventCode": 952,
         "forbidPreciousItems": true
     },
     {

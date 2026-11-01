@@ -83,6 +83,7 @@ set(SOURCES
         # --- Patches ----------------------------------------
         "src/patches/patch_new_game.hpp"
         "src/patches/patch_fix_map_inconsistencies.hpp"
+        "src/patches/patch_fairy_pond.hpp"
         "src/patches/patch_original_game_balance.hpp"
         "src/patches/patch_neutralize_map_variant_changes.hpp"
         "src/patches/patch_neutralize_flags.hpp"
