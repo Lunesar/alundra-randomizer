@@ -1154,8 +1154,7 @@
         "nodeId": "fairy_pond",
         "address": "246A506",
         "vanillaItem": "Herbs",
-        "eventCode": 959,
-        "forbidPreciousItems": true
+        "eventCode": 959
     },
     {
         "id": 140,
@@ -1163,8 +1162,7 @@
         "nodeId": "fairy_pond",
         "address": "246A4DE",
         "vanillaItem": "Life Vessel",
-        "eventCode": 957,
-        "forbidPreciousItems": true
+        "eventCode": 957
     },
     {
         "id": 141,
@@ -1172,8 +1170,7 @@
         "nodeId": "fairy_pond",
         "address": "242F4F6",
         "vanillaItem": "Herbs",
-        "eventCode": 950,
-        "forbidPreciousItems": true
+        "eventCode": 950
     },
     {
         "id": 142,
@@ -1181,8 +1178,7 @@
         "nodeId": "fairy_pond",
         "address": "246A362",
         "vanillaItem": "Herbs",
-        "eventCode": 954,
-        "forbidPreciousItems": true
+        "eventCode": 954
     },
     {
         "id": 143,
@@ -1190,8 +1186,7 @@
         "nodeId": "fairy_pond",
         "address": "246A376",
         "vanillaItem": "Herbs",
-        "eventCode": 955,
-        "forbidPreciousItems": true
+        "eventCode": 955
     },
     {
         "id": 144,
@@ -1199,8 +1194,7 @@
         "nodeId": "fairy_pond",
         "address": "246A38A",
         "vanillaItem": "Herbs",
-        "eventCode": 956,
-        "forbidPreciousItems": true
+        "eventCode": 956
     },
     {
         "id": 145,
@@ -1208,8 +1202,7 @@
         "nodeId": "fairy_pond",
         "address": "24A57C6",
         "vanillaItem": "Fiend Blade",
-        "eventCode": 952,
-        "forbidPreciousItems": true
+        "eventCode": 952
     },
     {
         "id": 146,

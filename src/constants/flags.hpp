@@ -96,5 +96,5 @@ constexpr Flag FLAG_JESS_TALKED_LEAVING_HOUSE_ON_GAME_START = Flag(0xD334, 7);
 
 // Event code 0x03B8. Fairy Pond map 161 entity 6, the reward chest.
 // PatchFairyPond writes it into the collected halfword. New game leaves it clear.
-// Map 161 script B[1] seals the pond with 0x03A3. That bit is a different flag.
+// Map 161 script B[1] sealed the pond with 0x03A3. PatchFairyPond skips that FlagOn.
 constexpr Flag FLAG_FAIRY_POND_REWARD_CHEST = Flag(0xD3AB, 0);
