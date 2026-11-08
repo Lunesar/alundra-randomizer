@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(alundra-randomizer VERSION 1.3.1 LANGUAGES CXX)
+project(alundra-randomizer VERSION 1.3.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -84,6 +84,7 @@ set(SOURCES
         "src/patches/patch_new_game.hpp"
         "src/patches/patch_fix_map_inconsistencies.hpp"
         "src/patches/patch_fairy_pond.hpp"
+        "src/patches/patch_tarn_manor.hpp"
         "src/patches/patch_original_game_balance.hpp"
         "src/patches/patch_neutralize_map_variant_changes.hpp"
         "src/patches/patch_neutralize_flags.hpp"

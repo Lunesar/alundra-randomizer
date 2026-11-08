@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "../src/constants/flags.hpp"
 #include "../src/constants/item_codes.hpp"
 #include "../src/game/game_data.hpp"
 #include "../src/io/placement_seed_map.hpp"
@@ -197,6 +198,7 @@ namespace
         uint32_t load = 0;
         uint32_t flag_word = 0;
         uint32_t reg[32] {};
+        bool word_is_flag = false;
         bool older_active = false;
         int older_reg = 0;
         uint32_t older_value = 0;
@@ -235,10 +237,12 @@ namespace
         {
             if((va & 3u) != 0)
                 throw std::runtime_error("Unaligned lookup load");
-            // Chest-open stores the parent pointer at +0x280. Flag 0 is a null
-            // parent, so the lookup must miss without reading parent+0x40.
+            // A chest child stores its parent at +0x280. Flag 0 is a null parent.
+            // Tarn's table stores the flag itself there. A non-negative word must
+            // be searched, not dereferenced: 0x03B9+0x40 is the unaligned address
+            // that used to fault the pickup.
             if(va == ENTITY_BASE + 0x280)
-                return flag_word == 0 ? 0u : PARENT_BASE;
+                return (word_is_flag || flag_word == 0) ? flag_word : PARENT_BASE;
             if(va == PARENT_BASE + 0x40)
                 return flag_word;
 
@@ -251,9 +255,11 @@ namespace
         }
     };
 
-    uint32_t run_lookup(const BinaryFile& memory, uint32_t load, uint32_t entry, uint32_t item_id, uint32_t flag_word)
+    uint32_t run_lookup(const BinaryFile& memory, uint32_t load, uint32_t entry, uint32_t item_id, uint32_t flag_word,
+                        bool word_is_flag = false)
     {
         LookupMachine cpu{ memory, load, flag_word, {} };
+        cpu.word_is_flag = word_is_flag;
         cpu.reg[31] = RETURN_SENTINEL;
         cpu.reg[16] = 0x11111111;
         cpu.reg[17] = ENTITY_BASE;
@@ -992,6 +998,9 @@ namespace
         const uint32_t missing_pointer = run_lookup(exe, load, target, ITEM_REMOTE, 0);
         check(read_cstr(exe, missing_pointer, load) == "AP Item",
               "A chest with no flag did not fall back to AP Item");
+        const uint32_t direct_pointer = run_lookup(exe, load, target, ITEM_REMOTE, 0x0111, true);
+        check(read_cstr(exe, direct_pointer, load) == "AP Item",
+              "A flag word stored on the pickup was used as a pointer");
         const uint32_t local_pointer = run_lookup(exe, load, target, herbs_id, CHEST_FLAG);
         check(local_pointer == LOCAL_NAME_POINTER, "Local item lookup no longer uses the item-name table");
 
@@ -1097,6 +1106,58 @@ namespace
         });
         check(rejected.find("shop price") != std::string::npos, "A price on a chest was accepted");
     }
+
+    void test_table_remote_name(const std::filesystem::path& dir, const GameData& game_data, RandomizerWorld& world)
+    {
+        const uint16_t table_flag = FLAG_TARNS_MANOR_TABLE.event_code();
+        check(table_flag == 0x03B9, "Tarn table flag is not 0x03B9");
+
+        Json json = load_json(PLACEMENT_MULTIWORLD_FORMAT_FIXTURE);
+        json["placements"]["129"] = Json::object({
+            { "player", "OtherWorld" },
+            { "item", "Sword upgrade" },
+            { "classification", "filler" }
+        });
+        const auto path = dir / "table_remote.json";
+        write_json(path, json);
+        const placement_seed_map::Contents placement = placement_seed_map::read(path);
+        placement_seed_map::apply(world, game_data, placement.placements);
+
+        ItemSource* table = source_by_id(world, 129);
+        ItemSource* chest = source_by_id(world, 1);
+        ItemSource* shop = source_by_id(world, 262);
+        check(table->is_remote() && table->contents_name() == "OtherWorld - Sword upgrade",
+              "Tarn table remote name was not applied");
+        check(table->event_code() == table_flag, "Tarn table event code changed");
+
+        const uint8_t herbs_id = game_data.item("Herbs")->id();
+        BinaryFile datas(std::vector<uint8_t>(datas_limit(world), 0));
+        plant_shop_price(datas, shop);
+        plant_chest_flag(datas, chest);
+
+        BinaryFile exe_bytes(std::vector<uint8_t>(EXE_SIZE, 0));
+        plant_hooks(exe_bytes, herbs_id);
+        const auto exe_path = dir / "table_remote.exe";
+        exe_bytes.save_as(exe_path);
+
+        PatchApplyItemSources patch;
+        patch.alter_datas_file(datas, game_data, world);
+        PsxExeFile exe(exe_path);
+        patch.alter_exe_file(exe, game_data, world);
+        const uint32_t target = jal_target(exe.get_long_le(NAME_SITE_B), SITE_B_PC);
+        exe.save_as(exe_path);
+        const uint32_t load = exe.get_long_le(0x18);
+
+        const uint32_t table_pointer = run_lookup(exe, load, target, ITEM_REMOTE, table_flag, true);
+        check(read_cstr(exe, table_pointer, load) == "OtherWorld - Sword upgrade",
+              "Tarn table lookup did not return the other world's item");
+        const uint32_t chest_pointer = run_lookup(exe, load, target, ITEM_REMOTE, CHEST_FLAG);
+        check(read_cstr(exe, chest_pointer, load) == "Primus - Progressive Sword",
+              "A chest parent lookup changed when the table flag was added");
+        const uint32_t missing_pointer = run_lookup(exe, load, target, ITEM_REMOTE, 0, true);
+        check(read_cstr(exe, missing_pointer, load) == "AP Item",
+              "A zero word on the table pickup did not fall back to AP Item");
+    }
 }
 
 int main()
@@ -1121,6 +1182,9 @@ int main()
 
         RandomizerWorld shop_price_world(game_data);
         test_remote_shop_price(dir, game_data, shop_price_world);
+
+        RandomizerWorld table_world(game_data);
+        test_table_remote_name(dir, game_data, table_world);
 
         std::filesystem::remove_all(dir);
         std::cout << "placement_remote_test passed\n";

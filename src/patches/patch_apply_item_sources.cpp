@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "../constants/flags.hpp"
 #include "../constants/item_codes.hpp"
 #include "../game/item.hpp"
 #include "../model/item_source.hpp"
@@ -53,12 +54,14 @@ namespace
     constexpr uint32_t SHOP_RECEIVE_WORDS[] = { 0x0C00D205, 0x00E08021 }; // jal 80034814; addu s0, a3, zero
     constexpr uint32_t CAN_RECEIVE = 0x80034814;
 
-    // Chest-open spawn stores the parent chest here and sets state 2. The
-    // collected flag is the word at parent+0x40, which is also what that
-    // path passes to FlagOn. A null word is a different spawn and is a miss.
-    // FlagOn itself is left alone.
+    // Chest-open spawn stores the parent chest at entity+0x280. That pointer
+    // is in kseg0, so it is negative, and the collected flag is parent+0x40.
+    // Tarn's Manor table stores its flag in the same word. A non-negative
+    // word is the flag itself. Zero matches no row and is a miss. FlagOn
+    // itself is left alone.
     constexpr uint16_t PICKUP_PARENT_OFFSET = 0x280;
     constexpr uint16_t CHEST_FLAG_OFFSET = 0x40;
+    constexpr uint16_t TARNS_MANOR_TABLE_SOURCE = 129;
 
     constexpr const char* GENERIC_REMOTE_NAME = "AP Item";
 
@@ -212,6 +215,9 @@ namespace
     // remotes that share one flag. Those checks still get a specific line
     // from the shop and NPC text patches. Merrick's menu reads a private
     // 8-byte info row instead of this table.
+    //
+    // entity+0x280 is a kseg0 parent for a chest child and the flag word for
+    // Tarn's table. Only a negative value is dereferenced.
     MipsCode build_lookup(uint32_t& table_addiu, uint32_t& generic_addiu)
     {
         MipsCode code;
@@ -221,8 +227,9 @@ namespace
         code.bne(reg_S3, reg_T0, "local");
 
         code.lw(reg_T1, reg_S1, PICKUP_PARENT_OFFSET);
-        code.beq(reg_T1, reg_ZERO, "miss");
+        code.bgez(reg_T1, "direct");
         code.lw(reg_T1, reg_T1, CHEST_FLAG_OFFSET);
+        code.label_("direct");
         table_addiu = emit_pc_relative(code, reg_T0);
         code.lw(reg_T2, reg_T0, 0);
         code.addiu(reg_T0, reg_T0, 4);
@@ -499,13 +506,19 @@ void PatchApplyItemSources::alter_datas_file(BinaryFile& data, const GameData&, 
             if(found != chest_flags.end())
                 note.flags.push_back(found->second);
         }
+        // The table give is a script byte, so the chest scan never sees it.
+        // The ground tick leaves 0x03B9 at entity+0x280 and the lookup above
+        // searches that word.
+        if(source->id() == TARNS_MANOR_TABLE_SOURCE)
+            note.flags.push_back(FLAG_TARNS_MANOR_TABLE.event_code());
         _remotes.push_back(std::move(note));
     }
 
     if(any_remote)
         install_remote_sprite(data);
 
-    // Fix ground Book of Elna byte causing trouble
+    // Map 117 entity 20, Tarn's Manor table. Direction bit 0x80 adds 256 to the
+    // sprite index, so the vanilla value would draw a placed item as the wrong sprite.
     data.set_byte(0x1BA5D05, 0x00);
 
     // Change the "repeating" slot at Merrick's shop visually into a open chest

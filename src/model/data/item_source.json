@@ -1072,9 +1072,10 @@
         "id": 129,
         "name": "Tarn's Manor: Item on table in final room",
         "nodeId": "tarn_manor",
+        "address": "1BA5730",
         "spriteAddress": "1BA5D06",
         "vanillaItem": "Book of Elna",
-        "forbidPreciousItems": true
+        "eventCode": 953
     },
     {
         "id": 130,

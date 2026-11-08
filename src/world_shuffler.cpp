@@ -215,7 +215,7 @@ void WorldShuffler::fill_item_source_randomly(ItemSource* source)
 bool WorldShuffler::test_item_source_compatibility(ItemSource* source, const Item* item) const
 {
     // Forbid precious items in sources that can be taken repeatedly, such as
-    // restocking shelves and the Book of Elna.
+    // restocking shelves.
     if(source->forbid_precious_items() && item->is_precious())
         return false;
 

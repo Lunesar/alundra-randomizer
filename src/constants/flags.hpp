@@ -98,3 +98,9 @@ constexpr Flag FLAG_JESS_TALKED_LEAVING_HOUSE_ON_GAME_START = Flag(0xD334, 7);
 // PatchFairyPond writes it into the collected halfword. New game leaves it clear.
 // Map 161 script B[1] sealed the pond with 0x03A3. PatchFairyPond skips that FlagOn.
 constexpr Flag FLAG_FAIRY_POND_REWARD_CHEST = Flag(0xD3AB, 0);
+
+// Event code 0x03B9. Tarn's Manor map 117, the table in the final room.
+// PatchTarnManor writes it on the entity. The obtain popup FlagOns it, and so
+// does the Book of Elna scene when that scene is the path that runs. New game
+// leaves it clear. Story flag 0x006C is unchanged and is not this check.
+constexpr Flag FLAG_TARNS_MANOR_TABLE = Flag(0xD3AB, 1);
