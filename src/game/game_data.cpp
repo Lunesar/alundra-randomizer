@@ -100,6 +100,9 @@ void GameData::init_starting_flags()
 
     // Remove the specific cutscene when we enter Lurvy's shop for the first time
     _starting_flags.emplace_back(FLAG_LURVY_WELCOMED_US_ONCE);
+
+    // Skip the Murgg ambush in front of Tarn's Manor on Overworld D3
+    _starting_flags.emplace_back(FLAG_OVERWORLD_D3_MURGG_AMBUSH_DONE);
 }
 
 void GameData::apply_options(const RandomizerOptions& options)

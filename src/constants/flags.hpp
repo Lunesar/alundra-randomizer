@@ -91,6 +91,12 @@ constexpr Flag FLAG_CASINO_SLIME_BANNED = Flag(0xD3F8, 2);
 
 constexpr Flag FLAG_LURVY_WELCOMED_US_ONCE = Flag(0xD3BE, 2);
 
+// Event code 0x0672. Overworld D3 (map 15) B[1] checks it before the manor
+// door. When it is on, the script ends and never takes control or spawns the
+// three Murggs (entities 0–2, sprite 0x5B). The scene itself FlagOns it once
+// those Murggs are gone. Nothing else reads or writes the bit.
+constexpr Flag FLAG_OVERWORLD_D3_MURGG_AMBUSH_DONE = Flag(0xD402, 2);
+
 constexpr Flag FLAG_ANCIENT_SHRINE_SYBOLS_PILLAR_ROOM_CLEARED = Flag(0xD3F8, 7);
 constexpr Flag FLAG_JESS_TALKED_LEAVING_HOUSE_ON_GAME_START = Flag(0xD334, 7);
 
