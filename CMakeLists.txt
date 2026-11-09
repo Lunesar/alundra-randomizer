@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(alundra-randomizer VERSION 1.3.2 LANGUAGES CXX)
+project(alundra-randomizer VERSION 1.3.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -59,6 +59,9 @@ namespace
     constexpr uint32_t LOCAL_NAME_POINTER = 0x11112222;
     constexpr uint16_t CHEST_FLAG = 0x0680;
     constexpr uint16_t SHOP_PRICE = 4;
+    // Lowest chest-text stack write in the freeze savestates is 0x8001E160.
+    // A remote name, including its NUL, has to end at or below this address.
+    constexpr uint32_t CHEST_TEXT_STACK_FLOOR = 0x8001E000;
     constexpr uint32_t RETURN_SENTINEL = 0x80000000;
     constexpr uint32_t ENTITY_BASE = 0x80100000;
     constexpr uint32_t PARENT_BASE = 0x80200000;
@@ -190,6 +193,13 @@ namespace
         const auto found = std::search(file.begin(), file.end(), pattern.begin(), pattern.end());
         check(found != file.end(), "Disc is missing display string \"" + text + "\"");
         return static_cast<uint32_t>(std::distance(file.begin(), found));
+    }
+
+    void check_name_below_chest_stack(const BinaryFile& file, uint32_t load, const std::string& text)
+    {
+        const uint32_t va = load + (find_cstr(file, text) - HEADER_SIZE);
+        const uint32_t end = va + static_cast<uint32_t>(text.size()) + 1;
+        check(end <= CHEST_TEXT_STACK_FLOOR, text + " sits in the chest-text stack");
     }
 
     struct LookupMachine
@@ -730,10 +740,13 @@ namespace
 
         PsxExeFile exe(exe_path);
         slot_block::write(exe, *identity);
+        exe.inject_stack_cushion();
         MipsCode later;
         later.add_byte(0xAB);
         const uint32_t later_address = exe.inject_code(later);
         check(later_address < slot_block::SLOT_BLOCK_ADDRESS, "A later injection moved onto the slot block");
+        check(later_address + static_cast<uint32_t>(later.size()) <= PsxExeFile::TEXT_STACK_FLOOR,
+              "Injected bytes sit in the chest-text stack");
         exe.save_as(exe_path);
 
         const uint32_t new_load = exe.get_long_le(0x18);
@@ -918,6 +931,7 @@ namespace
         patch.alter_datas_file(datas, game_data, world);
         PsxExeFile exe(exe_path);
         const uint32_t size_before = static_cast<uint32_t>(exe.size());
+        exe.inject_stack_cushion();
         patch.alter_exe_file(exe, game_data, world);
 
         check(datas.get_byte(chest->addresses().front()) == ITEM_REMOTE, "Remote chest did not write the sentinel");
@@ -972,11 +986,14 @@ namespace
         const uint32_t entry_offset = file_offset_for_va(target, load);
         check(exe.get_long_le(entry_offset) == 0x03E0C020, "Lookup does not save ra before bgezal");
 
+        check(PsxExeFile::TEXT_STACK_FLOOR <= CHEST_TEXT_STACK_FLOOR, "Chest-text stack floor moved up");
         const uint32_t primus_offset = find_cstr(exe, "Primus - Progressive Sword");
         const uint32_t primus_va = load + (primus_offset - HEADER_SIZE);
         const uint32_t generic_offset = find_cstr(exe, "AP Item");
-        check(find_cstr(exe, "Tertius - Mouse Trap") > 0, "Trap display string was not written");
-        check(find_cstr(exe, "Secondus - Hookshot") > 0, "Shop display string was not written");
+        check_name_below_chest_stack(exe, load, "Primus - Progressive Sword");
+        check_name_below_chest_stack(exe, load, "Tertius - Mouse Trap");
+        check_name_below_chest_stack(exe, load, "Secondus - Hookshot");
+        check_name_below_chest_stack(exe, load, "AP Item");
         assert_load_delays(exe, entry_offset, generic_offset);
 
         bool paired = false;
@@ -1143,6 +1160,7 @@ namespace
         PatchApplyItemSources patch;
         patch.alter_datas_file(datas, game_data, world);
         PsxExeFile exe(exe_path);
+        exe.inject_stack_cushion();
         patch.alter_exe_file(exe, game_data, world);
         const uint32_t target = jal_target(exe.get_long_le(NAME_SITE_B), SITE_B_PC);
         exe.save_as(exe_path);
@@ -1157,6 +1175,30 @@ namespace
         const uint32_t missing_pointer = run_lookup(exe, load, target, ITEM_REMOTE, 0, true);
         check(read_cstr(exe, missing_pointer, load) == "AP Item",
               "A zero word on the table pickup did not fall back to AP Item");
+    }
+
+    void test_names_rejected_without_stack_cushion(const std::filesystem::path& dir, const GameData& game_data,
+                                                   RandomizerWorld& world)
+    {
+        const placement_seed_map::Contents placement = placement_seed_map::read(PLACEMENT_MULTIWORLD_FORMAT_FIXTURE);
+        placement_seed_map::apply(world, game_data, placement.placements);
+
+        const uint8_t herbs_id = game_data.item("Herbs")->id();
+        BinaryFile datas(std::vector<uint8_t>(datas_limit(world), 0));
+        plant_shop_price(datas, source_by_id(world, 262));
+        plant_chest_flag(datas, source_by_id(world, 1));
+
+        BinaryFile exe_bytes(std::vector<uint8_t>(EXE_SIZE, 0));
+        plant_hooks(exe_bytes, herbs_id);
+        const auto exe_path = dir / "names_in_stack.exe";
+        exe_bytes.save_as(exe_path);
+
+        PatchApplyItemSources patch;
+        patch.alter_datas_file(datas, game_data, world);
+        PsxExeFile exe(exe_path);
+        const std::string rejected = error_of([&] { patch.alter_exe_file(exe, game_data, world); });
+        check(rejected.find("chest-text stack") != std::string::npos,
+              "Remote names were injected into the chest-text stack");
     }
 }
 
@@ -1185,6 +1227,9 @@ int main()
 
         RandomizerWorld table_world(game_data);
         test_table_remote_name(dir, game_data, table_world);
+
+        RandomizerWorld stack_world(game_data);
+        test_names_rejected_without_stack_cushion(dir, game_data, stack_world);
 
         std::filesystem::remove_all(dir);
         std::cout << "placement_remote_test passed\n";

@@ -1,6 +1,7 @@
 #include "patches.hpp"
 
 #include "../randomizer_options.hpp"
+#include "../tools/psx_exe_file.hpp"
 #include "slot_block.hpp"
 
 #include "patch_new_game.hpp"
@@ -82,6 +83,10 @@ void apply_randomizer_patches(BinaryFile& data, PsxExeFile& exe,
     // First injection. Later patches land below this address and leave it put.
     if(slot != nullptr)
         slot_block::write(exe, *slot);
+
+    // Below the slot block. The chest-text stack grows down from 0x8001FFF0
+    // through this cushion instead of through injected names.
+    exe.inject_stack_cushion();
 
     execute_patches(patches, data, exe, game_data, world);
 }

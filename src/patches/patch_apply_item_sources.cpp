@@ -174,6 +174,7 @@ namespace
     {
         std::string text;
         std::vector<uint16_t> flags;
+        uint32_t merrick_offset = 0;
     };
 
     std::vector<TableRow> lookup_rows(const std::vector<RemoteFlags>& notes)
@@ -306,99 +307,126 @@ namespace
         site.jal(injected, false);
         exe.set_code(SHOP_RECEIVE_CALL, site);
     }
-}
 
-void PatchApplyItemSources::install_remote_lookup(PsxExeFile& exe, const std::vector<RemoteNote>& notes)
-{
-        expect_words(exe, NAME_SITE_A, SITE_A_WORDS, 4, "chest line");
-        expect_words(exe, NAME_SITE_B, SITE_B_WORDS, 4, "obtained line");
-        expect_words(exe, NAME_SITE_C, SITE_C_WORDS, 3, "inventory-full line");
+    struct MerrickRecord
+    {
+        uint32_t file_offset = 0;
+        uint32_t blob_offset = 0;
+        std::string text;
+    };
 
+    // Lookup code, then "AP Item", the unique names, the flag table, and the
+    // Merrick rows. Pointers inside it are still zero until the base is known.
+    struct LookupImage
+    {
+        MipsCode code;
         uint32_t table_addiu = 0;
         uint32_t generic_addiu = 0;
-        MipsCode code = build_lookup(table_addiu, generic_addiu);
-
-        const uint32_t generic_offset = static_cast<uint32_t>(code.size());
-        append_cstring(code, GENERIC_REMOTE_NAME);
-
+        uint32_t generic_offset = 0;
         std::map<std::string, uint32_t> text_offsets;
-        for(const auto& note : notes)
-        {
-            if(text_offsets.contains(note.text))
-                continue;
-            text_offsets.emplace(note.text, static_cast<uint32_t>(code.size()));
-            append_cstring(code, note.text);
-        }
-
-        while(code.size() % 4 != 0)
-            code.add_byte(0);
-
-        const uint32_t table_offset = static_cast<uint32_t>(code.size());
-        std::vector<RemoteFlags> row_notes;
-        row_notes.reserve(notes.size());
-        for(const RemoteNote& note : notes)
-            row_notes.push_back(RemoteFlags{ note.text, note.flags });
-        const std::vector<TableRow> rows = lookup_rows(row_notes);
-        code.add_long_le(static_cast<uint32_t>(rows.size()));
+        std::vector<TableRow> rows;
         std::vector<uint32_t> pointer_offsets;
-        pointer_offsets.reserve(rows.size());
-        for(const TableRow& row : rows)
-        {
-            code.add_long_le(row.flag);
-            pointer_offsets.push_back(static_cast<uint32_t>(code.size()));
-            code.add_long_le(0);
-        }
-
-        struct MerrickRecord
-        {
-            uint32_t file_offset = 0;
-            uint32_t blob_offset = 0;
-            std::string text;
-        };
         std::vector<MerrickRecord> merrick_records;
-        for(const auto& note : notes)
+    };
+
+    void append_unique_names(LookupImage& image, const std::vector<RemoteFlags>& notes)
+    {
+        image.generic_offset = static_cast<uint32_t>(image.code.size());
+        append_cstring(image.code, GENERIC_REMOTE_NAME);
+        for(const RemoteFlags& note : notes)
+        {
+            if(image.text_offsets.contains(note.text))
+                continue;
+            image.text_offsets.emplace(note.text, static_cast<uint32_t>(image.code.size()));
+            append_cstring(image.code, note.text);
+        }
+        while(image.code.size() % 4 != 0)
+            image.code.add_byte(0);
+    }
+
+    void append_flag_table(LookupImage& image, const std::vector<RemoteFlags>& notes)
+    {
+        const uint32_t table_offset = static_cast<uint32_t>(image.code.size());
+        image.rows = lookup_rows(notes);
+        image.code.add_long_le(static_cast<uint32_t>(image.rows.size()));
+        image.pointer_offsets.reserve(image.rows.size());
+        for(const TableRow& row : image.rows)
+        {
+            image.code.add_long_le(row.flag);
+            image.pointer_offsets.push_back(static_cast<uint32_t>(image.code.size()));
+            image.code.add_long_le(0);
+        }
+        patch_addiu_delta(image.code, image.table_addiu, table_offset);
+    }
+
+    void append_merrick_rows(LookupImage& image, const std::vector<RemoteFlags>& notes)
+    {
+        for(const RemoteFlags& note : notes)
         {
             if(note.merrick_offset == 0)
                 continue;
             MerrickRecord record;
             record.file_offset = note.merrick_offset;
-            record.blob_offset = static_cast<uint32_t>(code.size());
+            record.blob_offset = static_cast<uint32_t>(image.code.size());
             record.text = note.text;
-            code.add_long_le(0);
-            code.add_long_le(0);
-            merrick_records.push_back(std::move(record));
+            image.code.add_long_le(0);
+            image.code.add_long_le(0);
+            image.merrick_records.push_back(std::move(record));
         }
+    }
 
-        const uint32_t base = exe.next_inject_address(static_cast<uint32_t>(code.size()));
-        patch_addiu_delta(code, table_addiu, table_offset);
-        patch_addiu_delta(code, generic_addiu, generic_offset);
+    LookupImage build_lookup_image(const std::vector<RemoteFlags>& notes)
+    {
+        LookupImage image;
+        image.code = build_lookup(image.table_addiu, image.generic_addiu);
+        append_unique_names(image, notes);
+        patch_addiu_delta(image.code, image.generic_addiu, image.generic_offset);
+        append_flag_table(image, notes);
+        append_merrick_rows(image, notes);
+        return image;
+    }
 
-        for(size_t index = 0; index < rows.size(); ++index)
+    // The top of the blob is the first byte below whatever was reserved already.
+    // Chest text stores down to 0x8001E160, so the names have to end at or below
+    // TEXT_STACK_FLOOR. inject_stack_cushion() reserves that gap.
+    void require_lookup_below_chest_stack(uint32_t base, uint32_t size)
+    {
+        const uint32_t blob_end = base + size;
+        if(blob_end > PsxExeFile::TEXT_STACK_FLOOR)
+            throw RandomizerException("Remote item names sit in the chest-text stack.");
+    }
+
+    void write_name_pointers(LookupImage& image, uint32_t base)
+    {
+        for(size_t index = 0; index < image.rows.size(); ++index)
         {
-            const uint32_t name_va = base + text_offsets.at(rows[index].text);
-            code.set_long_le(pointer_offsets[index], name_va);
+            const uint32_t name_va = base + image.text_offsets.at(image.rows[index].text);
+            image.code.set_long_le(image.pointer_offsets[index], name_va);
         }
-
-        for(const MerrickRecord& record : merrick_records)
+        for(MerrickRecord& record : image.merrick_records)
         {
-            code.set_long_le(record.blob_offset, base + text_offsets.at(record.text));
-            code.set_byte(record.blob_offset + 5, 0x34);
+            image.code.set_long_le(record.blob_offset, base + image.text_offsets.at(record.text));
+            image.code.set_byte(record.blob_offset + 5, 0x34);
         }
+    }
 
-        const uint32_t injected = exe.inject_code(code);
-        if(injected != base)
-            throw RandomizerException("Remote item lookup was injected at an unexpected address.");
-
-        const uint32_t generic_va = base + generic_offset;
+    void install_generic_remote_info(PsxExeFile& exe, uint32_t generic_va)
+    {
         const uint32_t info_address = ITEM_INFO_2_FILE + ITEM_REMOTE * 8;
         exe.set_long_le(info_address, generic_va);
         exe.set_byte(info_address + 5, 0x34);
         exe.set_word_le(ITEM_QTY_FILE + ITEM_REMOTE * 10 + 6, 0);
+    }
 
-        for(const MerrickRecord& record : merrick_records)
+    void install_merrick_name_rows(PsxExeFile& exe, const std::vector<MerrickRecord>& records, uint32_t base)
+    {
+        for(const MerrickRecord& record : records)
             exe.set_long_le(record.file_offset, base + record.blob_offset);
+    }
 
-        // Site A: the delay slot restores s0 = s3 * 8 before the call.
+    // Site A restores s0 = s3 * 8 in the delay slot. The fanfare byte reads it.
+    void install_lookup_call_sites(PsxExeFile& exe, uint32_t injected)
+    {
         MipsCode site_a;
         site_a.jal(injected, false);
         site_a.add_long_le(0x001380C0);
@@ -418,6 +446,32 @@ void PatchApplyItemSources::install_remote_lookup(PsxExeFile& exe, const std::ve
         site_c.nop();
         site_c.addu(reg_A1, reg_V0, reg_ZERO);
         exe.set_code(NAME_SITE_C, site_c);
+    }
+}
+
+void PatchApplyItemSources::install_remote_lookup(PsxExeFile& exe, const std::vector<RemoteNote>& notes)
+{
+    expect_words(exe, NAME_SITE_A, SITE_A_WORDS, 4, "chest line");
+    expect_words(exe, NAME_SITE_B, SITE_B_WORDS, 4, "obtained line");
+    expect_words(exe, NAME_SITE_C, SITE_C_WORDS, 3, "inventory-full line");
+
+    std::vector<RemoteFlags> flags;
+    flags.reserve(notes.size());
+    for(const RemoteNote& note : notes)
+        flags.push_back(RemoteFlags{ note.text, note.flags, note.merrick_offset });
+
+    LookupImage image = build_lookup_image(flags);
+    const uint32_t base = exe.next_inject_address(static_cast<uint32_t>(image.code.size()));
+    require_lookup_below_chest_stack(base, static_cast<uint32_t>(image.code.size()));
+    write_name_pointers(image, base);
+
+    const uint32_t injected = exe.inject_code(image.code);
+    if(injected != base)
+        throw RandomizerException("Remote item lookup was injected at an unexpected address.");
+
+    install_generic_remote_info(exe, base + image.generic_offset);
+    install_merrick_name_rows(exe, image.merrick_records, base);
+    install_lookup_call_sites(exe, injected);
 }
 
 void PatchApplyItemSources::alter_datas_file(BinaryFile& data, const GameData&, const RandomizerWorld& world)

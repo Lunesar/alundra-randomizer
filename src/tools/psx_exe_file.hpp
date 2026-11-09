@@ -16,12 +16,33 @@ private:
     std::vector<uint8_t> _prepended_bytes;
 
 public:
+    // Startup at 0x80083F90 points SP at 0x8001FFF0. The chest-text typewriter
+    // (0x80046FB4) then takes 7336 bytes, and drawing one glyph nests a few
+    // hundred more, so those frames write down to about 0x8001E100. The 0x800
+    // prefix below only covers ordinary calls. inject_stack_cushion() keeps
+    // every later injection under TEXT_STACK_FLOOR.
+    static constexpr uint32_t TEXT_STACK_FLOOR = 0x8001E000;
+    static constexpr uint32_t STACK_CUSHION = 0x3000;
+
+    static_assert(0x80020000 - FILE_SIZE_INCREMENT - STACK_CUSHION <= TEXT_STACK_FLOOR);
+
     explicit PsxExeFile(const std::filesystem::path& input_path) : BinaryFile(input_path)
     {
         _initial_code_start_addr = this->get_long_le(0x18);
 
-        // Add a full empty increment to let an open RAM space for the game to edit
+        // Ordinary frames grow down from 0x8001FFF0 into these bytes.
         _prepended_bytes.resize(FILE_SIZE_INCREMENT, 0x0000);
+    }
+
+    // Zero bytes under the stack, injected after the slot block when there is
+    // one so 0x8001F780 stays put. Chest text used to save return addresses
+    // through the remote item names, and the typewriter then froze on the
+    // pointer byte that replaced the rest of the name.
+    void inject_stack_cushion()
+    {
+        MipsCode cushion;
+        cushion.resize(STACK_CUSHION, 0);
+        inject_code(cushion);
     }
 
     void save_as(const std::filesystem::path& output_path) override
