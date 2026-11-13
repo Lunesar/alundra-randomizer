@@ -245,75 +245,112 @@ void RandomizerWorld::handle_crests(const RandomizerOptions& options, const Game
     }
 }
 
-void RandomizerWorld::handle_progressive_items(const RandomizerOptions& options, const GameData& game_data)
+namespace
 {
-    const uint16_t SLOT_SWORD = game_data.item(ITEM_SWORD_UPGRADE)->slot_id();
-    const uint16_t SLOT_BOW = game_data.item(ITEM_BOW_UPGRADE)->slot_id();
-    const uint16_t SLOT_FLAIL = game_data.item(ITEM_FLAIL_UPGRADE)->slot_id();
-    const uint16_t SLOT_ARMOR = game_data.item(ITEM_ARMOR_UPGRADE)->slot_id();
-    const uint16_t SLOT_BOOTS = game_data.item(ITEM_BOOTS_UPGRADE)->slot_id();
-    const uint16_t SLOT_EARTH_MAGIC = game_data.item(ITEM_EARTH_MAGIC_UPGRADE)->slot_id();
-    const uint16_t SLOT_WATER_MAGIC = game_data.item(ITEM_WATER_MAGIC_UPGRADE)->slot_id();
-    const uint16_t SLOT_FIRE_MAGIC = game_data.item(ITEM_FIRE_MAGIC_UPGRADE)->slot_id();
-    const uint16_t SLOT_WIND_MAGIC = game_data.item(ITEM_WIND_MAGIC_UPGRADE)->slot_id();
+    // Tier stored on the "upgrade" item. Equipment tiers start at 0.
+    constexpr uint16_t UPGRADE_TIER = 64;
 
-    std::vector<uint16_t> slots_to_process = {
-            SLOT_SWORD, SLOT_BOW, SLOT_FLAIL, SLOT_ARMOR,
-            SLOT_EARTH_MAGIC, SLOT_WATER_MAGIC, SLOT_FIRE_MAGIC, SLOT_WIND_MAGIC
+    struct SlotTiers
+    {
+        const Item* upgrade = nullptr;
+        std::vector<const Item*> items;
     };
 
-    // Boots are only made progressive if their effects are not split
-    if(!options.split_boots_effects())
-        slots_to_process.emplace_back(SLOT_BOOTS);
-
-    for(uint16_t slot_id : slots_to_process)
+    std::vector<uint16_t> progressive_slot_ids(const GameData& game_data, bool include_boots)
     {
-        const Item* upgrade_item = nullptr;
-        std::vector<const Item*> items_to_convert;
+        std::vector<uint16_t> slots = {
+                game_data.item(ITEM_SWORD_UPGRADE)->slot_id(),
+                game_data.item(ITEM_BOW_UPGRADE)->slot_id(),
+                game_data.item(ITEM_FLAIL_UPGRADE)->slot_id(),
+                game_data.item(ITEM_ARMOR_UPGRADE)->slot_id(),
+                game_data.item(ITEM_EARTH_MAGIC_UPGRADE)->slot_id(),
+                game_data.item(ITEM_WATER_MAGIC_UPGRADE)->slot_id(),
+                game_data.item(ITEM_FIRE_MAGIC_UPGRADE)->slot_id(),
+                game_data.item(ITEM_WIND_MAGIC_UPGRADE)->slot_id()
+        };
+        // Boots are only made progressive if their effects are not split
+        if(include_boots)
+            slots.emplace_back(game_data.item(ITEM_BOOTS_UPGRADE)->slot_id());
+        return slots;
+    }
+
+    SlotTiers tiers_in_slot(const GameData& game_data, uint16_t slot_id)
+    {
+        SlotTiers slot;
         for(uint8_t item_id = 1 ; item_id < ITEM_COUNT ; ++item_id)
         {
             const Item* item = game_data.item(item_id);
             if(item->slot_id() != slot_id)
                 continue;
-
-            if(item->tier() == 64)
-            {
-                upgrade_item = item;
-                continue;
-            }
-
-            items_to_convert.emplace_back(item);
+            if(item->tier() == UPGRADE_TIER)
+                slot.upgrade = item;
+            else
+                slot.items.emplace_back(item);
         }
-
-        if(!upgrade_item)
+        if(!slot.upgrade)
             throw RandomizerException("Could not find a valid upgrade item for slot " + std::to_string(slot_id));
+        return slot;
+    }
 
-        // Update the items distribution to remove specific item tiers and replace them by item upgrades
-        for(const Item* item : items_to_convert)
+    // -1 means the slot is empty. 0 is a real tier (Short Boots, Dagger, Cloth Armor),
+    // so an empty slot cannot be stored as 0.
+    int owned_tier_for_slot(const std::vector<const Item*>& starting_inventory, uint16_t slot_id)
+    {
+        int owned_tier = -1;
+        for(const Item* owned : starting_inventory)
         {
-            uint16_t amount = _items_distribution[item->id()];
-            _items_distribution[upgrade_item->id()] += amount;
-            _items_distribution[item->id()] -= amount;
+            if(owned->slot_id() != slot_id || owned->tier() == UPGRADE_TIER)
+                continue;
+            owned_tier = std::max(owned_tier, static_cast<int>(owned->tier()));
         }
+        return owned_tier;
+    }
 
-        // Update logic paths to require a certain count of item upgrades rather than specific items
+    // Empty slot: the first pickup grants tier 0, so tier T takes T + 1.
+    // Owned slot: the next pickup grants owned_tier + 1, so tier T takes T - owned_tier.
+    int upgrades_to_reach(uint16_t tier, int owned_tier)
+    {
+        if(owned_tier < 0)
+            return static_cast<int>(tier) + 1;
+        return static_cast<int>(tier) - owned_tier;
+    }
+
+    void replace_items_with_upgrades(std::array<uint16_t, ITEM_COUNT>& distribution, const SlotTiers& slot)
+    {
+        for(const Item* item : slot.items)
+        {
+            const uint16_t amount = distribution[item->id()];
+            distribution[slot.upgrade->id()] += amount;
+            distribution[item->id()] -= amount;
+        }
+    }
+
+    void replace_tier_requirements(WorldPath* path, const SlotTiers& slot, int owned_tier)
+    {
+        std::vector<const Item*>& required_items = path->required_items();
+        int highest = 0;
+        for(const Item* item : slot.items)
+        {
+            const auto it = std::find(required_items.begin(), required_items.end(), item);
+            if(it == required_items.end())
+                continue;
+            required_items.erase(it);
+            highest = std::max(highest, upgrades_to_reach(item->tier(), owned_tier));
+        }
+        for(int i = 1 ; i <= highest ; ++i)
+            required_items.emplace_back(slot.upgrade);
+    }
+}
+
+void RandomizerWorld::handle_progressive_items(const RandomizerOptions& options, const GameData& game_data)
+{
+    const bool include_boots = !options.split_boots_effects();
+    for(uint16_t slot_id : progressive_slot_ids(game_data, include_boots))
+    {
+        const SlotTiers slot = tiers_in_slot(game_data, slot_id);
+        const int owned_tier = owned_tier_for_slot(_starting_inventory, slot_id);
+        replace_items_with_upgrades(_items_distribution, slot);
         for(WorldPath* path : _paths)
-        {
-            auto& required_items = path->required_items();
-            uint8_t highest_tier = 0;
-            for(const Item* item : items_to_convert)
-            {
-                auto it = std::find(required_items.begin(), required_items.end(), item);
-                if(it != required_items.end())
-                {
-                    required_items.erase(it);
-                    uint8_t item_tier = item->tier()+1;
-                    highest_tier = std::max(highest_tier, item_tier);
-                }
-            }
-
-            for(int i=1 ; i<=highest_tier ; ++i)
-                required_items.emplace_back(upgrade_item);
-        }
+            replace_tier_requirements(path, slot, owned_tier);
     }
 }
