@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(alundra-randomizer VERSION 1.3.4 LANGUAGES CXX)
+project(alundra-randomizer VERSION 1.3.5 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -158,3 +158,4 @@ target_compile_definitions(placement_remote_test PRIVATE
         "PLACEMENT_MULTIWORLD_FORMAT_FIXTURE=\"${CMAKE_SOURCE_DIR}/tests/fixtures/placement_multiworld_format.json\"")
 
 add_executable(progressive_logic_test tests/progressive_logic_test.cpp ${SOURCES})
+add_executable(shop_throw_test tests/shop_throw_test.cpp ${SOURCES})
