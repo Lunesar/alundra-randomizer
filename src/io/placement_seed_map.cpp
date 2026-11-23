@@ -4,12 +4,14 @@
 #include <cstdint>
 #include <fstream>
 #include <limits>
+#include <set>
 #include <sstream>
 #include <string>
 #include <system_error>
 
 #include "../constants/item_codes.hpp"
 #include "../game/game_data.hpp"
+#include "../model/data/hint_source.json.hxx"
 #include "../model/item_source.hpp"
 #include "../model/randomizer_world.hpp"
 #include "../randomizer_options.hpp"
@@ -275,6 +277,126 @@ namespace
         return visible;
     }
 
+    std::set<std::string> hint_source_ids()
+    {
+        const Json sources = Json::parse(HINT_SOURCES_JSON);
+        std::set<std::string> ids;
+        for(auto& [key, _] : sources.items())
+            ids.insert(key);
+        return ids;
+    }
+
+    bool is_hint_sentence(const std::string& text)
+    {
+        if(text.empty())
+            return false;
+        for(unsigned char character : text)
+        {
+            if(character < 0x20 || character == 0x7F)
+                return false;
+        }
+        return true;
+    }
+
+    int64_t read_hint_integer(const Json& value, const std::string& speaker, const std::string& field)
+    {
+        if(!value.is_number_integer())
+        {
+            throw RandomizerException("Hint for '" + speaker + "' " + field + " must be an integer.");
+        }
+
+        try
+        {
+            return value.get<int64_t>();
+        }
+        catch(const Json::exception&)
+        {
+            throw RandomizerException("Hint for '" + speaker + "' " + field
+                                      + " does not fit in a 64-bit integer.");
+        }
+    }
+
+    void read_hints(const Json& json, placement_seed_map::PlacementFormat format,
+                    placement_seed_map::Contents& contents)
+    {
+        if(!json.contains("hints"))
+            return;
+        if(format != placement_seed_map::PlacementFormat::Multiworld)
+        {
+            throw RandomizerException("Placement seed map \"hints\" belongs on the Multiworld format.");
+        }
+
+        const Json& rows = json.at("hints");
+        if(!rows.is_array())
+            throw RandomizerException("Placement seed map \"hints\" must be an array of spoken lines.");
+
+        const std::set<std::string> speakers = hint_source_ids();
+        std::set<std::string> seen;
+        for(const Json& row : rows)
+        {
+            if(!row.is_object())
+                throw RandomizerException("A speaker hint must be an object with speaker, text, and location.");
+
+            for(auto& [key, _] : row.items())
+            {
+                if(key == "speaker" || key == "text" || key == "location" || key == "player")
+                    continue;
+                throw RandomizerException("Unknown key '" + key + "' in a speaker hint.");
+            }
+
+            if(!row.contains("speaker") || !row.at("speaker").is_string()
+               || !row.contains("text") || !row.at("text").is_string()
+               || !row.contains("location"))
+            {
+                throw RandomizerException("A speaker hint needs string keys speaker and text, and location.");
+            }
+
+            placement_seed_map::SpeakerHint hint;
+            hint.speaker = row.at("speaker").get<std::string>();
+            if(!speakers.contains(hint.speaker))
+            {
+                throw RandomizerException("Hint speaker '" + hint.speaker + "' is not a hint source.");
+            }
+            if(!seen.insert(hint.speaker).second)
+            {
+                throw RandomizerException("Speaker '" + hint.speaker + "' has more than one hint row.");
+            }
+
+            hint.text = row.at("text").get<std::string>();
+            if(!is_hint_sentence(hint.text))
+            {
+                throw RandomizerException("Hint for '" + hint.speaker
+                                          + "' needs a sentence without control characters.");
+            }
+
+            hint.location = read_hint_integer(row.at("location"), hint.speaker, "location");
+            if(hint.location < 0)
+            {
+                throw RandomizerException("Hint for '" + hint.speaker + "' needs an integer location id.");
+            }
+            if(row.contains("player"))
+            {
+                const int64_t player = read_hint_integer(row.at("player"), hint.speaker, "player");
+                if(player < 1 || player > static_cast<int64_t>(std::numeric_limits<int>::max()))
+                {
+                    throw RandomizerException("Hint for '" + hint.speaker
+                                              + "' needs the other player's slot.");
+                }
+                hint.player = static_cast<int>(player);
+            }
+            else if(hint.location > static_cast<int64_t>(std::numeric_limits<uint16_t>::max())
+                    || !contents.placements.contains(static_cast<uint16_t>(hint.location)))
+            {
+                throw RandomizerException("Hint for '" + hint.speaker + "' names location "
+                                          + std::to_string(hint.location) + ", which is not in \"placements\".");
+            }
+
+            contents.hints.push_back(std::move(hint));
+        }
+
+        contents.has_hints = true;
+    }
+
     void read_slot_identity(const Json& json, placement_seed_map::PlacementFormat format,
                             placement_seed_map::Contents& contents)
     {
@@ -431,6 +553,7 @@ placement_seed_map::Contents placement_seed_map::read(const std::filesystem::pat
 
     contents.placements = read_placements_object(json.at("placements"), format);
     read_slot_identity(json, format, contents);
+    read_hints(json, format, contents);
 
     for(auto& [key, _] : json.items())
     {
@@ -438,7 +561,7 @@ placement_seed_map::Contents placement_seed_map::read(const std::filesystem::pat
            || key == "gameSettings" || key == "randomizerSettings" || key == "placements")
             continue;
         if(format == placement_seed_map::PlacementFormat::Multiworld
-           && (key == "apworldVersion" || key == "player"))
+           && (key == "apworldVersion" || key == "player" || key == "hints"))
             continue;
 
         throw RandomizerException("Unknown key '" + key + "' in placement seed map '" + path.string()

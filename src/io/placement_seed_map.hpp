@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "../model/item_source.hpp"
 #include "../tools/json.hpp"
@@ -70,6 +72,19 @@ class RandomizerWorld;
  * string with no ASCII control characters. seed stays the unsigned 32-bit
  * randomizer seed. The reader keeps apworldVersion and player on Contents.
  *
+ * "hints", when present, is the spoken speaker lines. Each row names the
+ * speaker id from hint_source.json, the full sentence, and one check:
+ * { "speaker": "jess", "text": "Bomb can be found near Sanctuary", "location": 4 }
+ * location is an Alundra item-source id that also appears in "placements".
+ * An unknown-place line adds "player", the other slot's number, and location
+ * is that slot's location id rather than an item source:
+ * { "speaker": "lars_crypt", "text": "Ruby Crest can be found in an unknown place",
+ *   "location": 4242, "player": 2 }
+ * Only spoken lines are stored. A speaker with no line has no row. An empty
+ * array means the generator rolled and nobody spoke. A file that omits the
+ * key is older. The Alundra format rejects the key. The reader keeps the rows
+ * and does not stamp them, so a file that has rows still gets today's hint roll.
+ *
  * The disc shows "player - item" on pickup (47 characters at most). classification
  * is stored and otherwise ignored. "trap" does not change the game. There is no
  * network client and no way for an Alundra item to be sent to another game:
@@ -108,6 +123,16 @@ namespace placement_seed_map
         RemoteContents remote_item;
     };
 
+    struct SpeakerHint
+    {
+        std::string speaker;
+        std::string text;
+        // An item-source id when player is unset. Otherwise the other slot's location id.
+        int64_t location = 0;
+        // Unset when the check is in this world.
+        std::optional<int> player;
+    };
+
     struct Contents
     {
         std::string permalink;
@@ -117,6 +142,10 @@ namespace placement_seed_map
         std::string apworld_version;
         std::string player;
         std::map<uint16_t, Placement> placements;
+        // False when the file omits "hints". True when the key is present, including
+        // an empty array. The rows are kept. Reading them does not change hint text.
+        bool has_hints = false;
+        std::vector<SpeakerHint> hints;
     };
 
     Contents read(const std::filesystem::path& path);

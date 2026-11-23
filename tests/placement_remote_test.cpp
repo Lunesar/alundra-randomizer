@@ -708,6 +708,116 @@ namespace
               "An unknown slot key was accepted");
     }
 
+    Json hint_document(const Json& hints)
+    {
+        return Json::object({
+            { "format", 2 },
+            { "placements", Json::object({ { "1", 36 }, { "4", 57 } }) },
+            { "hints", hints }
+        });
+    }
+
+    void test_hint_rows(const std::filesystem::path& dir)
+    {
+        const auto path = dir / "hints.json";
+        write_json(path, hint_document(Json::array({
+            Json::object({
+                { "speaker", "jess" },
+                { "text", "Bomb can be found near Sanctuary" },
+                { "location", 4 }
+            }),
+            Json::object({
+                { "speaker", "lars_crypt" },
+                { "text", "Ruby Crest can be found in an unknown place" },
+                { "location", 4242 },
+                { "player", 2 }
+            })
+        })));
+        const placement_seed_map::Contents kept = placement_seed_map::read(path);
+        check(kept.has_hints, "Spoken rows were dropped");
+        check(kept.hints.size() == 2, "A spoken row was dropped");
+        check(kept.hints[0].speaker == "jess", "The first speaker was not kept");
+        check(kept.hints[0].text == "Bomb can be found near Sanctuary", "The local sentence was not kept");
+        check(kept.hints[0].location == 4, "The local check was not kept");
+        check(!kept.hints[0].player.has_value(), "A local hint named another slot");
+        check(kept.hints[1].speaker == "lars_crypt", "The unknown-place speaker was not kept");
+        check(kept.hints[1].location == 4242, "The other slot's location was not kept");
+        check(kept.hints[1].player.has_value() && *kept.hints[1].player == 2,
+              "The other slot was not kept");
+        check(kept.placements.at(4).item_id == 57, "Hint rows displaced a placement");
+
+        write_json(path, Json::object({
+            { "format", 2 },
+            { "placements", Json::object({ { "1", 36 } }) }
+        }));
+        const placement_seed_map::Contents older = placement_seed_map::read(path);
+        check(!older.has_hints && older.hints.empty(), "A file with no hints key invented rows");
+
+        write_json(path, hint_document(Json::array()));
+        const placement_seed_map::Contents quiet = placement_seed_map::read(path);
+        check(quiet.has_hints && quiet.hints.empty(), "An empty hint roll was treated as an older file");
+
+        write_json(path, Json::object({
+            { "format", 1 },
+            { "placements", Json::object({ { "1", 36 } }) },
+            { "hints", Json::array() }
+        }));
+        check(error_of([&] { placement_seed_map::read(path); }).find("Multiworld format") != std::string::npos,
+              "The Alundra format accepted hint rows");
+
+        write_json(path, hint_document(Json::array({
+            Json::object({
+                { "speaker", "nope" },
+                { "text", "Bomb can be found near Sanctuary" },
+                { "location", 4 }
+            })
+        })));
+        check(error_of([&] { placement_seed_map::read(path); }).find("not a hint source") != std::string::npos,
+              "An unknown speaker was accepted");
+
+        write_json(path, hint_document(Json::array({
+            Json::object({
+                { "speaker", "jess" },
+                { "text", "Bomb can be found near Sanctuary" },
+                { "location", 4 }
+            }),
+            Json::object({
+                { "speaker", "jess" },
+                { "text", "Bomb can be found near Sanctuary" },
+                { "location", 1 }
+            })
+        })));
+        check(error_of([&] { placement_seed_map::read(path); }).find("more than one") != std::string::npos,
+              "One speaker was given two rows");
+
+        write_json(path, hint_document(Json::array({
+            Json::object({
+                { "speaker", "jess" },
+                { "text", "Bomb can be found near Sanctuary" },
+                { "location", 99 }
+            })
+        })));
+        check(error_of([&] { placement_seed_map::read(path); }).find("not in \"placements\"") != std::string::npos,
+              "A local hint named a check the file does not place");
+
+        write_json(path, hint_document(Json::array({
+            Json::object({
+                { "speaker", "jess" },
+                { "text", "Ruby Crest can be found in an unknown place" },
+                { "location", 4242 },
+                { "player", 0 }
+            })
+        })));
+        check(error_of([&] { placement_seed_map::read(path); }).find("slot") != std::string::npos,
+              "Slot 0 was accepted");
+
+        write_json(path, hint_document(Json::object({
+            { "jess", "Bomb can be found near Sanctuary" }
+        })));
+        check(error_of([&] { placement_seed_map::read(path); }).find("array") != std::string::npos,
+              "A hint object was accepted in place of the row array");
+    }
+
     std::string read_cfield(const PsxExeFile& exe, uint32_t offset, std::size_t width)
     {
         std::string text;
@@ -1214,6 +1324,7 @@ int main()
         RandomizerWorld rejection_world(game_data);
         test_rejections(dir, game_data, rejection_world);
         test_slot_identity(dir);
+        test_hint_rows(dir);
         test_slot_block(dir);
 
         RandomizerWorld alundra_world(game_data);
