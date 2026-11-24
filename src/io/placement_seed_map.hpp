@@ -80,10 +80,12 @@ class RandomizerWorld;
  * is that slot's location id rather than an item source:
  * { "speaker": "lars_crypt", "text": "Ruby Crest can be found in an unknown place",
  *   "location": 4242, "player": 2 }
- * Only spoken lines are stored. A speaker with no line has no row. An empty
- * array means the generator rolled and nobody spoke. A file that omits the
- * key is older. The Alundra format rejects the key. The reader keeps the rows
- * and does not stamp them, so a file that has rows still gets today's hint roll.
+ * Only spoken lines are stored. A speaker with no line has no row and keeps
+ * the placeholder from hint_source.json. An empty array means the generator
+ * rolled and nobody spoke. A file that omits the key is older, and the
+ * patcher rolls the lines itself. The Alundra format rejects the key. When
+ * the key is present, apply_hints writes the sentences and the patcher does
+ * not roll.
  *
  * The disc shows "player - item" on pickup (47 characters at most). classification
  * is stored and otherwise ignored. "trap" does not change the game. There is no
@@ -142,8 +144,8 @@ namespace placement_seed_map
         std::string apworld_version;
         std::string player;
         std::map<uint16_t, Placement> placements;
-        // False when the file omits "hints". True when the key is present, including
-        // an empty array. The rows are kept. Reading them does not change hint text.
+        // False when the file omits "hints". The patcher then rolls lines itself.
+        // True when the key is present, including an empty array.
         bool has_hints = false;
         std::vector<SpeakerHint> hints;
     };
@@ -151,4 +153,6 @@ namespace placement_seed_map
     Contents read(const std::filesystem::path& path);
     void write(const std::filesystem::path& path, const RandomizerOptions& options, const RandomizerWorld& world);
     void apply(RandomizerWorld& world, const GameData& game_data, const std::map<uint16_t, Placement>& placements);
+    // Write each row's sentence onto that speaker. A speaker with no row is left alone.
+    void apply_hints(RandomizerWorld& world, const std::vector<SpeakerHint>& hints);
 }

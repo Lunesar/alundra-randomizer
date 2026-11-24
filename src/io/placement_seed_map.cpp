@@ -6,12 +6,14 @@
 #include <limits>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 
 #include "../constants/item_codes.hpp"
 #include "../game/game_data.hpp"
 #include "../model/data/hint_source.json.hxx"
+#include "../model/hint_source.hpp"
 #include "../model/item_source.hpp"
 #include "../model/randomizer_world.hpp"
 #include "../randomizer_options.hpp"
@@ -650,5 +652,27 @@ void placement_seed_map::apply(RandomizerWorld& world, const GameData& game_data
             throw RandomizerException("Placement seed map is missing location id " + std::to_string(location_id)
                                       + " (" + source->name() + ").");
         }
+    }
+}
+
+void placement_seed_map::apply_hints(RandomizerWorld& world, const std::vector<SpeakerHint>& hints)
+{
+    for(const SpeakerHint& hint : hints)
+    {
+        if(hint.text.empty())
+        {
+            throw RandomizerException("Hint for '" + hint.speaker + "' needs a sentence.");
+        }
+
+        HintSource* source = nullptr;
+        try
+        {
+            source = world.hint_source(hint.speaker);
+        }
+        catch(const std::out_of_range&)
+        {
+            throw RandomizerException("Hint speaker '" + hint.speaker + "' is not a hint source.");
+        }
+        source->text(hint.text);
     }
 }

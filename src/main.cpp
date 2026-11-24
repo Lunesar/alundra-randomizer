@@ -740,9 +740,20 @@ void generate(const ArgumentDictionary& args)
         std::cout << "\nApplying placement seed map (" << placement.placements.size() << " locations)...\n";
         placement_seed_map::apply(world, game_data, placement.placements);
 
-        std::cout << "Generating hints...\n";
-        WorldShuffler shuffler(world, game_data, options);
-        shuffler.randomize_hints();
+        if(placement.has_hints)
+        {
+            // The file already chose the lines. Speakers with no row keep the
+            // placeholder, and the dialogue patches copy whatever text is set.
+            std::cout << "Applying " << placement.hints.size()
+                      << " speaker hints from the placement file...\n";
+            placement_seed_map::apply_hints(world, placement.hints);
+        }
+        else
+        {
+            std::cout << "Generating hints...\n";
+            WorldShuffler shuffler(world, game_data, options);
+            shuffler.randomize_hints();
+        }
 
         spoiler_json = initial_spoiler_json(options, game_data, world);
         if(options.allow_spoiler_log())

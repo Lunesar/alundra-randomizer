@@ -14,6 +14,7 @@
 #include "../src/constants/item_codes.hpp"
 #include "../src/game/game_data.hpp"
 #include "../src/io/placement_seed_map.hpp"
+#include "../src/model/hint_source.hpp"
 #include "../src/model/item_source.hpp"
 #include "../src/model/randomizer_world.hpp"
 #include "../src/patches/patch_apply_item_sources.hpp"
@@ -818,6 +819,48 @@ namespace
               "A hint object was accepted in place of the row array");
     }
 
+    void test_apply_speaker_hints(const GameData& game_data)
+    {
+        RandomizerWorld world(game_data);
+        const std::string coal_placeholder = world.hint_source("coal_mine")->text();
+        check(!coal_placeholder.empty(), "Coal Mine loaded without its placeholder");
+
+        placement_seed_map::SpeakerHint jess;
+        jess.speaker = "jess";
+        jess.text = "Bomb can be found near Sanctuary";
+        jess.location = 4;
+        placement_seed_map::SpeakerHint lars;
+        lars.speaker = "lars_crypt";
+        lars.text = "Ruby Crest can be found in an unknown place";
+        lars.location = 4242;
+        lars.player = 2;
+        placement_seed_map::apply_hints(world, { jess, lars });
+
+        check(world.hint_source("jess")->text() == jess.text, "Jess did not receive the placement sentence");
+        check(world.hint_source("lars_crypt")->text() == lars.text,
+              "Lars did not receive the unknown-place sentence");
+        check(world.hint_source("coal_mine")->text() == coal_placeholder,
+              "A speaker with no row lost the placeholder");
+
+        RandomizerWorld quiet(game_data);
+        const std::string quiet_jess = quiet.hint_source("jess")->text();
+        placement_seed_map::apply_hints(quiet, {});
+        check(quiet.hint_source("jess")->text() == quiet_jess, "An empty roll replaced a placeholder");
+
+        placement_seed_map::SpeakerHint missing;
+        missing.speaker = "nope";
+        missing.text = "Bomb can be found near Sanctuary";
+        check(error_of([&] { placement_seed_map::apply_hints(world, { missing }); }).find("not a hint source")
+                  != std::string::npos,
+              "An unknown speaker was stamped");
+
+        placement_seed_map::SpeakerHint blank;
+        blank.speaker = "jess";
+        check(error_of([&] { placement_seed_map::apply_hints(world, { blank }); }).find("sentence")
+                  != std::string::npos,
+              "An empty sentence was stamped");
+    }
+
     std::string read_cfield(const PsxExeFile& exe, uint32_t offset, std::size_t width)
     {
         std::string text;
@@ -1325,6 +1368,7 @@ int main()
         test_rejections(dir, game_data, rejection_world);
         test_slot_identity(dir);
         test_hint_rows(dir);
+        test_apply_speaker_hints(game_data);
         test_slot_block(dir);
 
         RandomizerWorld alundra_world(game_data);

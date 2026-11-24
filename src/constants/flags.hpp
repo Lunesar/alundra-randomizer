@@ -110,3 +110,13 @@ constexpr Flag FLAG_FAIRY_POND_REWARD_CHEST = Flag(0xD3AB, 0);
 // does the Book of Elna scene when that scene is the path that runs. New game
 // leaves it clear. Story flag 0x006C is unchanged and is not this check.
 constexpr Flag FLAG_TARNS_MANOR_TABLE = Flag(0xD3AB, 1);
+
+// Speaker lines that had no permanent bit of their own. PatchApplyHintText
+// sets each one when that line has been dismissed. New game leaves them clear.
+// 0x0058 is the next spare code and is not used: Jess has no safe byte.
+constexpr Flag FLAG_SPEAKER_HINT_NIRUDE = Flag(0xD33E, 3);       // 0x0053
+constexpr Flag FLAG_SPEAKER_HINT_WILDA = Flag(0xD33E, 4);        // 0x0054
+constexpr Flag FLAG_SPEAKER_HINT_COAL_MINE = Flag(0xD33E, 5);    // 0x0055
+constexpr Flag FLAG_SPEAKER_HINT_ANCIENT_SHRINE = Flag(0xD33E, 6); // 0x0056
+constexpr Flag FLAG_SPEAKER_HINT_STENIA = Flag(0xD33E, 7);       // 0x0057
+constexpr Flag FLAG_SPEAKER_HINT_NAVA = Flag(0xD33F, 1);         // 0x0059
