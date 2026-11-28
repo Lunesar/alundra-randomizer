@@ -136,9 +136,13 @@
         "hints": [],
         "graphPos": [-7,-9]
     },
-    "overworld_b4_behind_bomb": {
+    "overworld_b4_behind_bomb_left": {
         "hints": [],
-        "graphPos": [-10,-7]
+        "graphPos": [-13,-8]
+    },
+    "overworld_b4_behind_bomb_middle": {
+        "hints": [],
+        "graphPos": [-10,-6]
     },
     "overworld_b4_behind_power_glove": {
         "hints": [],
@@ -247,6 +251,10 @@
     "overworld_a3_left": {
         "hints": [],
         "graphPos": [-24,0]
+    },
+    "overworld_a3_left_elevated_behind_merman": {
+        "hints": [],
+        "graphPos": [-22,-2]
     },
     "overworld_a3_left_behind_merman": {
         "hints": [],

@@ -414,7 +414,7 @@
     {
         "id": 50,
         "name": "Overworld B4: Chest behind the tree stump",
-        "nodeId": "overworld_b4_behind_bomb",
+        "nodeId": "overworld_b4_behind_bomb_middle",
         "address": "2E5082",
         "vanillaItem": "Gilded Falcon",
         "eventCode": 1391
@@ -599,7 +599,7 @@
     {
         "id": 73,
         "name": "Overworld A3: Lower chest in left ruins",
-        "nodeId": "overworld_a3_left_behind_merman",
+        "nodeId": "overworld_a3_left_elevated_behind_merman",
         "address": "1866E2",
         "vanillaItem": "Gilded Falcon",
         "eventCode": 1774

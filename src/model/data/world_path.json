@@ -445,7 +445,15 @@
     },
     {
         "fromId": "overworld_b4",
-        "toId": "overworld_b4_behind_bomb",
+        "toId": "overworld_b4_behind_bomb_left",
+        "twoWay": true,
+        "requiredItems": [
+            "Bomb"
+        ]
+    },
+    {
+        "fromId": "overworld_b4",
+        "toId": "overworld_b4_behind_bomb_middle",
         "twoWay": true,
         "requiredItems": [
             "Bomb"
@@ -470,12 +478,12 @@
         ]
     },
     {
-        "fromId": "overworld_b4_behind_bomb",
+        "fromId": "overworld_b4_behind_bomb_left",
         "toId": "overworld_a4_right",
         "twoWay": true
     },
     {
-        "fromId": "overworld_b4_behind_bomb",
+        "fromId": "overworld_b4_behind_bomb_left",
         "toId": "overworld_b3_megalith",
         "twoWay": true,
         "requiredItems": [
@@ -483,7 +491,7 @@
         ]
     },
     {
-        "fromId": "overworld_b4_behind_bomb",
+        "fromId": "overworld_b4_behind_bomb_middle",
         "toId": "overworld_b3_elevated",
         "twoWay": true,
         "requiredItems": [
@@ -679,10 +687,14 @@
     },
     {
         "fromId": "overworld_a3_left",
-        "toId": "overworld_a3_left_behind_merman",
+        "toId": "overworld_a3_left_elevated_behind_merman",
         "requiredItems": [
             "Merman Boots"
         ]
+    },
+    {
+        "fromId": "overworld_a3_left_elevated_behind_merman",
+        "toId": "overworld_a3_left_behind_merman"
     },
     {
         "fromId": "overworld_a3_left_behind_power_glove",

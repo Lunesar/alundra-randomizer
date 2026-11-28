@@ -164,7 +164,8 @@
         "nodeIds": [
             "overworld_b4",
             "overworld_b4_behind_merman",
-            "overworld_b4_behind_bomb",
+            "overworld_b4_behind_bomb_left",
+            "overworld_b4_behind_bomb_middle",
             "overworld_b4_behind_power_glove",
             "overworld_b4_nava_hut_behind_spring"
         ],
@@ -286,6 +287,7 @@
         "name": "Overworld A3 (Ruins above Fire Manor)",
         "nodeIds": [
             "overworld_a3_left",
+            "overworld_a3_left_elevated_behind_merman",
             "overworld_a3_left_behind_power_glove",
             "overworld_a3_left_behind_merman",
             "overworld_a3_mimics_cave",
