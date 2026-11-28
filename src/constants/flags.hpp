@@ -120,3 +120,10 @@ constexpr Flag FLAG_SPEAKER_HINT_COAL_MINE = Flag(0xD33E, 5);    // 0x0055
 constexpr Flag FLAG_SPEAKER_HINT_ANCIENT_SHRINE = Flag(0xD33E, 6); // 0x0056
 constexpr Flag FLAG_SPEAKER_HINT_STENIA = Flag(0xD33E, 7);       // 0x0057
 constexpr Flag FLAG_SPEAKER_HINT_NAVA = Flag(0xD33F, 1);         // 0x0059
+
+// Riverside bar map 394, B[2]. PatchApplyHintText sets one bit when that
+// prize sign's text has been dismissed. New game leaves them clear.
+// 0x0058, bit 0 of this byte, stays unused.
+constexpr Flag FLAG_CASINO_SIGN_SLIME_SMASH = Flag(0xD33F, 2);      // 0x005A
+constexpr Flag FLAG_CASINO_SIGN_HIT_YOUR_MARK = Flag(0xD33F, 3);    // 0x005B
+constexpr Flag FLAG_CASINO_SIGN_WHEEL_OF_FORTUNE = Flag(0xD33F, 4); // 0x005C

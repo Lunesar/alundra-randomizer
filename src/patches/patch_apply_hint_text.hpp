@@ -39,6 +39,7 @@ public:
         // The bits are written for every seed. A placeholder line can set one,
         // and the client has no row for a speaker who was not given a line.
         mark_speaker_lines(data);
+        mark_casino_signs(data);
     }
 
 private:
@@ -373,6 +374,44 @@ private:
                 { { TALK, TALK + 2 }, { TALK_END - 2, TALK_END - 1 } }, {}, "Nava's talk");
 
         expect_bytes(data, INTERACT, { 0x10, 0x05, 0x0A, 0x80, 0xFF }, "Nava's interact script");
+    }
+
+    // Map 394 B[2]. Each prize path is 14 bytes, and the four IfTrueGotos above
+    // them land on the first byte. The 1-frame wait and the Break after Restart
+    // come out. FlagOn goes in after WaitDialog, and the path stays 14 bytes.
+    // The exit sign at 0x561160E remains unmodified.
+    static void mark_casino_signs(BinaryFile& data)
+    {
+        mark_casino_sign(data, 0x56115E4, 0x96, FLAG_CASINO_SIGN_SLIME_SMASH.event_code(), "Slime Smash");
+        mark_casino_sign(data, 0x56115F2, 0x97, FLAG_CASINO_SIGN_HIT_YOUR_MARK.event_code(), "Hit Your Mark");
+        mark_casino_sign(data, 0x5611600, 0x98, FLAG_CASINO_SIGN_WHEEL_OF_FORTUNE.event_code(), "Wheel of Fortune");
+        expect_bytes(data, 0x561160E,
+                { 0x10, 0x5B, 0x80, 0x00, 0x41, 0x37, 0x01, 0x0D, 0x99, 0x01, 0x39, 0x11, 0x49, 0x00 },
+                "the exit sign");
+    }
+
+    static void mark_casino_sign(BinaryFile& data, uint32_t address, uint8_t dialog,
+                                 uint16_t code, const char* label)
+    {
+        const uint8_t retail[] = {
+            0x10, 0x5B, 0x80, 0x00, 0x41, 0x37, 0x01, 0x0D, dialog, 0x01, 0x39, 0x11, 0x49, 0x00
+        };
+        for(uint32_t index = 0; index < sizeof(retail); ++index)
+        {
+            if(data.get_byte(address + index) != retail[index])
+                throw RandomizerException(std::string("Casino sign flag did not find ") + label + ".");
+        }
+
+        const uint8_t patched[] = {
+            0x10, 0x5B, 0x80, 0x00, 0x41,
+            0x0D, dialog, 0x01,
+            0x39,
+            0x05, static_cast<uint8_t>(code & 0xFF), static_cast<uint8_t>(code >> 8),
+            0x11,
+            0x49
+        };
+        static_assert(sizeof(retail) == sizeof(patched));
+        data.set_bytes(address, patched, sizeof(patched));
     }
 
     static std::vector<uint8_t> flag_on_bytes(uint16_t code)
